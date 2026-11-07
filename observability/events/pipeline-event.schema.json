@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Mulgil pipeline event",
+  "type": "object",
+  "required": ["event", "at", "profile", "severity"],
+  "properties": {
+    "event": { "enum": ["dbt_run_failed", "dbt_test_failed", "sla_breached", "ingest_failed", "schema_evolved", "compaction_lagging"] },
+    "at": { "type": "string", "format": "date-time" },
+    "profile": { "enum": ["sovereign", "aws-serverless", "aws-trino", "byop"] },
+    "severity": { "enum": ["info", "warning", "critical"] },
+    "table": { "type": "string" },
+    "owner": { "type": "string", "description": "IdP id from the Gold data contract" },
+    "detail": { "type": "string" },
+    "run_url": { "type": "string" }
+  }
+}

@@ -8,7 +8,7 @@ README·ADR·코드 주석은 영어.
 | 문서 | 독자 | 상태 | 작성 조건 |
 |---|---|---|---|
 | [00-architecture](00-architecture.md) | 의사결정자 + 엔지니어 | 초안 | — |
-| 01-sizing | 의사결정자 | 미작성 | 첫 고객 제안 시점, 비용 실측 후 |
+| [01-sizing](01-sizing.md) | 의사결정자 | 초안 (기준치) | 첫 고객 실측 후 보정 |
 | 02-sovereign | 엔지니어 | 미작성 | compose 첫 기동 → K8s 첫 설치 후, 걸린 지점 그대로 |
 | 03-aws-serverless | 엔지니어 | 미작성 | 첫 AWS 엔게이지먼트 |
 | 04-aws-trino | 엔지니어 | 미작성 | aws-trino 첫 구축 |

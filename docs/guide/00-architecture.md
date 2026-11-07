@@ -132,9 +132,28 @@ Airflow on EKS · Prometheus/Grafana
 - FTE를 켜면 Spot 워커가 안전해지지만 대화형 지연이 늘어난다. 배치 전용
   워커 풀과 대화형 풀을 나누는 것이 현실적.
 
-### 4.4 프로필 선택 결정 트리
+### 4.4 `byop` — 고객 플랫폼 위에서 (Snowflake · Databricks · BigQuery)
+
+물길은 두 층이다. **규약 + dbt 프로젝트**는 플랫폼 중립이고, **배포 프로필**은
+교체 가능하다. 고객이 이미 Snowflake·Databricks·BigQuery를 쓰면 프로필을 버리고
+dbt 프로젝트와 규약만 가져간다 — `profiles.yml`의 타깃이 바뀔 뿐이다.
+
+| 항목 | Iceberg/Trino 프로필 | Snowflake | Databricks | BigQuery |
+|---|---|---|---|---|
+| PII 태그 전달 | Iceberg 컬럼 속성 | 객체 태그 (dbt post-hook) | Unity Catalog 태그 | 정책 태그 |
+| 신선도 신호 | Iceberg 스냅샷 시각 | `LAST_ALTERED` · 타임트래블 | Delta 버전 | 파티션 갱신 시각 |
+| 삭제 절차 | row delete + 스냅샷 만료 | `DELETE` + 타임트래블 보존 단축 | `DELETE` + `VACUUM` | `DELETE` |
+| 2계층 정책 | `rules.json` / Lake Formation | 행 접근·마스킹 정책 | Unity 행 필터·컬럼 마스크 | 행 수준 보안 |
+
+마지막 두 줄은 수문의 어댑터 몫이다. 물길의 이식성이 곧 수문의 시장 크기이므로,
+규약 문서는 "Iceberg 스냅샷" 대신 "테이블 버전 식별자"처럼 **플랫폼 중립 용어**로
+쓴다. byop 프로필은 그 고객이 생길 때 만든다.
+
+### 4.5 프로필 선택 결정 트리
 
 ```
+고객이 이미 Snowflake·Databricks·BigQuery를 쓴다? ── 예 ──▶ byop (규약 + dbt만)
+   │ 아니오
 데이터가 폐쇄망·국내 보관 의무? ── 예 ──▶ sovereign
    │ 아니오
 월 스캔량 > ~130TB 또는 동시 쿼리 > ~30 또는 p95 < 1초 필요? ── 예 ──▶ aws-trino
@@ -143,6 +162,12 @@ Airflow on EKS · Prometheus/Grafana
 ```
 
 손익분기 근거는 ADR 0002.
+
+### 4.6 수문과의 선후 — Phase 1은 물길이 필요 없다
+
+수문 Phase 1(문서 거버넌스, docs-only)은 테이블을 쓰지 않는다. 물길이 수문에
+필요해지는 시점은 Phase 2(테이블 거버넌스)부터이고, 그때 compose 픽스처가 수문의
+테스트 환경이 된다. 물길을 먼저 완성할 이유는 없고, 병행해도 서로를 막지 않는다.
 
 ## 5. 데이터 흐름 — 한 레코드의 여정
 
@@ -181,6 +206,47 @@ Mulgil이 만들고 Sumun이 읽는 것. 방향은 한쪽뿐이다 — Sumun은 
 접근 정책 (`rules.json` 또는 Lake Formation 권한). 원본은 Sumun의 정책
 테이블이고, Mulgil은 그 결과물을 엔진에 꽂는다. 정확한 포맷은
 `08-sumun-boundary.md`.
+
+## 6.1 문서 랜딩 규약 — 수문이 읽는 버킷
+
+문서 수집 **코드**(스캐너·청킹·임베딩·커넥터 SDK)는 수문에 있다. 물길은 문서가
+놓이는 자리와 형식만 정한다. 어떤 커넥터든 — Airbyte, rclone, 고객의 스크립트,
+수문 커넥터 SDK 플러그인 — 이 규약을 지키면 수문이 읽는다.
+
+```
+s3://<landing-bucket>/docs/<collection>/<source>/<yyyy>/<mm>/<file>
+s3://<landing-bucket>/docs/<collection>/<source>/<yyyy>/<mm>/<file>.manifest.json
+```
+
+매니페스트 필수 필드:
+
+| 필드 | 뜻 | 수문이 쓰는 곳 |
+|---|---|---|
+| `source` · `source_key` | 원 시스템과 그 안의 레코드 키 | 테이블 행과 문서 연결, 리니지 |
+| `collection` | 수문 컬렉션 (ACL 단위) | 접근 통제 |
+| `owner` | 오너 (IdP ID) | 계약·알림 |
+| `content_hash` | 본문 해시 | 멱등 수집, 변경 감지 |
+| `retention_days` | 보존 기간 | 만료 삭제 |
+| `deleted` · `deleted_at` | 삭제 플래그 | 청크·임베딩 삭제 전파 |
+| `subject_keys[]` | 포함된 정보주체 식별자(가명) | 삭제 요청 조율 |
+
+테이블 수집과 문서 수집이 같은 소스에서 나오면 `source`·`source_key`가 둘을 잇는다.
+상세는 `06-ingestion.md`.
+
+## 6.2 관측 산출물 — 수문 ops 모듈이 읽는 신호
+
+물길은 화면을 만들지 않는다. 신호를 내보내고, 수문 ops 모듈(치수)과 Grafana가
+읽는다.
+
+| 신호 | 출처 | 형식 |
+|---|---|---|
+| 자원 상태 — 볼륨 사용률, filer DB, Trino 워커 메모리·큐, 소형 파일 수 | SeaweedFS·Trino 내장 exporter, Iceberg 메타데이터 | Prometheus |
+| 파이프라인 이벤트 — dbt 실패, 테스트 실패, SLA 위반 | Airflow 콜백 / Step Functions | webhook (JSON 스펙은 `observability/events/`) |
+| 저장 비용 — 테이블별 용량·증가율·스냅샷 묶인 용량 | Iceberg `files`·`snapshots` 메타데이터, S3 Storage Lens | 일 1회 CSV/JSON |
+| 컴퓨트 비용 — 쿼리별 스캔 바이트·CPU 시간 | Trino event listener / Athena 쿼리 히스토리 | 쿼리 로그 테이블 |
+
+`observability/`에 exporter 설정, 기본 Grafana 대시보드, 이벤트 페이로드 스펙,
+비용 추출 스크립트를 둔다. 수문 없이 쓰는 고객에게는 Grafana가 화면이다.
 
 ## 7. 보안 모델 — 두 계층
 

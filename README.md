@@ -65,7 +65,9 @@ compose/                single-laptop fixture (a shrunken `sovereign`)
 helm/mulgil/            `sovereign` on Kubernetes (values-sovereign.yaml)
 terraform/aws-serverless/  S3 Tables, Athena, Lake Formation, Step Functions
 terraform/aws-trino/       S3, Polaris, Trino on EKS, Airflow
+observability/          exporter config, Grafana defaults, event payload specs, cost extracts
 docs/adr/               decisions
+docs/guide/             build guide (Korean): architecture, sizing, profiles, modeling, operations
 scripts/                bring-up, seed, teardown
 ```
 
