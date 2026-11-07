@@ -1,0 +1,6 @@
+customer_id,name,phone,rrn,email,region,created_at
+1,김민준,010-2345-6789,900101-1234568,minjun.kim@example.com,서울,2025-01-05
+2,이서연,010-3456-7890,951231-2345671,seoyeon.lee@example.com,부산,2025-02-10
+3,박도윤,010-4567-8901,880715-1456788,doyun.park@example.com,대구,2025-03-15
+4,최지우,010-5678-9012,020304-4567896,jiwoo.choi@example.com,인천,2025-04-20
+5,정하은,010-6789-0123,991111-2678909,haeun.jung@example.com,서울,2025-05-25

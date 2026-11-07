@@ -1,0 +1,24 @@
+name: mulgil
+version: 0.1.0
+profile: mulgil
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+
+models:
+  mulgil:
+    +materialized: table
+    +table_format: iceberg
+    bronze:
+      +schema: bronze
+      +materialized: incremental
+      +incremental_strategy: append
+    silver:
+      +schema: silver
+    gold:
+      +schema: gold
+
+seeds:
+  mulgil:
+    +schema: bronze

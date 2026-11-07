@@ -1,0 +1,9 @@
+order_id,customer_id,product_id,quantity,unit_price,status,ordered_at
+1001,1,P01,2,15000,completed,2026-09-02
+1002,2,P02,1,89000,completed,2026-09-05
+1003,1,P03,3,4500,refunded,2026-09-09
+1004,3,P01,1,15000,completed,2026-10-01
+1005,4,P02,2,89000,completed,2026-10-11
+1006,5,P03,10,4500,completed,2026-10-15
+1007,2,P01,1,15000,cancelled,2026-10-20
+1008,3,P02,1,89000,completed,2026-11-02

@@ -1,0 +1,6 @@
+version: 2
+seeds:
+  - name: raw_customers
+    description: Synthetic customers. PII values are fake but checksum-valid so masking tests have something to catch.
+  - name: raw_orders
+  - name: raw_products

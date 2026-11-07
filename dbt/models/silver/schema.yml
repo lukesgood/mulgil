@@ -1,0 +1,23 @@
+version: 2
+models:
+  - name: silver_customers
+    description: Conformed customers. PII tags below are the contract Sumun reads.
+    columns:
+      - name: customer_id
+        tests: [unique, not_null]
+      - name: name
+        meta: { pii: name }
+      - name: phone
+        meta: { pii: phone }
+      - name: rrn
+        meta: { pii: rrn }
+      - name: email
+        meta: { pii: email }
+      - name: region
+  - name: silver_orders
+    columns:
+      - name: order_id
+        tests: [unique, not_null]
+      - name: customer_id
+        tests:
+          - relationships: { to: ref('silver_customers'), field: customer_id }

@@ -1,0 +1,19 @@
+name: ci
+on:
+  push: { branches: [main] }
+  pull_request:
+jobs:
+  dbt-compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install dbt-trino
+      - name: Compile models against the local target (no engine needed)
+        working-directory: dbt
+        env: { DBT_PROFILES_DIR: . }
+        run: |
+          cp profiles.yml.example profiles.yml
+          dbt deps
+          dbt parse

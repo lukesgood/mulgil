@@ -1,0 +1,42 @@
+# Copy to ~/.dbt/profiles.yml (or set DBT_PROFILES_DIR). Same models, three targets.
+mulgil:
+  target: local
+  outputs:
+    local:            # compose fixture / sovereign
+      type: trino
+      host: localhost
+      port: 8080
+      user: mulgil
+      catalog: iceberg
+      schema: bronze
+      threads: 4
+    sovereign:
+      type: trino
+      host: trino.mulgil.svc
+      port: 8080
+      user: "{{ env_var('TRINO_USER') }}"
+      password: "{{ env_var('TRINO_PASSWORD') }}"
+      method: ldap
+      catalog: iceberg
+      schema: bronze
+      threads: 8
+    aws-serverless:
+      type: athena
+      s3_staging_dir: "s3://{{ env_var('ATHENA_RESULTS_BUCKET') }}/dbt/"
+      s3_data_dir: "s3://{{ env_var('LAKEHOUSE_BUCKET') }}/"
+      region_name: ap-northeast-2
+      database: bronze
+      schema: bronze
+      work_group: mulgil
+      threads: 8
+    aws-trino:
+      type: trino
+      host: "{{ env_var('TRINO_HOST') }}"
+      port: 443
+      user: "{{ env_var('TRINO_USER') }}"
+      password: "{{ env_var('TRINO_PASSWORD') }}"
+      method: ldap
+      http_scheme: https
+      catalog: iceberg
+      schema: bronze
+      threads: 8

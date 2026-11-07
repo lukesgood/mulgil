@@ -1,0 +1,31 @@
+version: 2
+models:
+  - name: gold_revenue_daily
+    description: >
+      Daily revenue by region and category. Completed orders only.
+      Data contract: owner finance, freshness 1 day, grain day.
+    meta:
+      owner: finance
+      sla_hours: 24
+      contract: v1
+    columns:
+      - name: date
+        tests: [not_null]
+      - name: region
+      - name: category
+      - name: revenue
+        tests: [not_null]
+      - name: orders
+
+# Metric definitions Sumun's query_metric consumes. One definition for BI and agents.
+metrics:
+  - name: revenue
+    label: 매출
+    model: ref('gold_revenue_daily')
+    type: sum
+    sql: revenue
+    timestamp: date
+    time_grains: [day, week, month, quarter, year]
+    dimensions: [region, category]
+    meta:
+      approved_by: finance
