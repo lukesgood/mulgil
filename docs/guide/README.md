@@ -9,7 +9,7 @@ README·ADR·코드 주석은 영어.
 |---|---|---|---|
 | [00-architecture](00-architecture.md) | 의사결정자 + 엔지니어 | 초안 | — |
 | [01-sizing](01-sizing.md) | 의사결정자 | 초안 (기준치) | 첫 고객 실측 후 보정 |
-| 02-sovereign | 엔지니어 | 미작성 | compose 첫 기동 → K8s 첫 설치 후, 걸린 지점 그대로 |
+| [02-sovereign](02-sovereign.md) | 엔지니어 | 초안 — SeaweedFS 클러스터 상세 (`[검증 필요]` 표시 포함) | K8s 첫 설치 후 걸린 지점 반영 |
 | 03-aws-serverless | 엔지니어 | 미작성 | 첫 AWS 엔게이지먼트 |
 | 04-aws-trino | 엔지니어 | 미작성 | aws-trino 첫 구축 |
 | 05-modeling | 엔지니어·분석가 | 미작성 | dbt 프로젝트가 compose에서 한 번 돈 뒤 |
