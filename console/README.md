@@ -16,5 +16,7 @@ OIDC login with Sumun's frontend so a customer sees one product.
 Pods/logs → k9s or Lens · SQL → MCP client or Trino UI · DAGs → Airflow ·
 Users/permissions → IdP and Polaris. Each gets a link, not a page.
 
-`screens/` holds one markdown spec per screen (data shown, ops endpoints,
-empty/error states) before any component is written.
+`screens/` holds one spec per screen (purpose, data and ops endpoints,
+actions, empty/error states, acceptance criteria). The endpoints they
+reference are defined in `../ops/API.md`. No component is written before
+its spec's acceptance criteria are agreed.
