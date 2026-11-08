@@ -1,0 +1,25 @@
+# Mulgil package bill of materials.
+# The package version is the product version. Every profile (compose, helm,
+# terraform) must deploy exactly these versions; drift is a bug (ADR 0004).
+# Upgrade = bump here, run the compose smoke test, then update profiles.
+package: mulgil
+version: 0.1.0-dev
+components:
+  seaweedfs:       { version: "3.9x", note: "pin exact tag before 0.1.0; built-in Iceberg REST (table buckets)" }
+  trino:           { version: "479" }
+  apache-polaris:  { version: "1.x", optional: true, profiles: [sovereign, aws-trino] }
+  postgresql:      { version: "16" }
+  dbt-core:        { version: "1.9" }
+  dbt-trino:       { version: "1.9", profiles: [sovereign, aws-trino, local] }
+  dbt-athena:      { version: "1.9", profiles: [aws-serverless] }
+  airflow:         { version: "2.10", profiles: [sovereign, aws-trino] }
+  prometheus:      { version: "2.5x" }
+  alertmanager:    { version: "0.27" }
+  grafana:         { version: "11", optional: true, license: AGPL-3.0, note: "unmodified image, dashboards as JSON only" }
+  mulgil-ops:      { version: "0.1.0-dev", source: ops/ }
+  mulgil-console:  { version: "0.1.0-dev", source: console/ }
+  sumun:           { version: ">=2.0.0-dev", source: "https://github.com/lukesgood/sumun", note: "bundled component; see sumun ADR 0003" }
+aws-managed:
+  athena:          { engine: "v3", profiles: [aws-serverless] }
+  s3-tables:       { profiles: [aws-serverless] }
+  lake-formation:  { profiles: [aws-serverless] }

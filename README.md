@@ -1,30 +1,31 @@
 # Mulgil (물길)
 
-**A reference medallion lakehouse on open components — not a product.**
+**A governed medallion lakehouse package on open components — with
+[Sumun (수문)](https://github.com/lukesgood/sumun) built in.**
 
 Mulgil is the waterway: it carries data from sources through Bronze, Silver
-and Gold on Apache Iceberg, using SeaweedFS, Trino, Apache Polaris, dbt and
-Airflow. [Sumun (수문)](https://github.com/lukesgood/sumun) is the gate at
-the end of it — the governed tool server that decides which agents and
-applications may drink from Gold.
+and Gold on Apache Iceberg, using SeaweedFS, Trino or Athena, Apache
+Polaris, dbt and Airflow. Sumun is the gate at the end of it — the governed
+tool server that decides which agents and applications may drink from Gold.
 
 > Mulgil carries the data. Sumun decides who drinks.
 
-Mulgil exists for three jobs, in this order:
+Mulgil is delivered as a **package** (ADR 0004): one bill of materials, three
+deployment profiles, a dbt template, build guides, and an integrated
+management console that manages the data assets — tables, pipelines, cost,
+storage, alerts — in one place. It is built for organisations that do not
+yet have a lakehouse and want one that is governed for AI agents from day
+one; organisations that already have a platform use Sumun alone.
 
-1. **Test fixture** for Sumun — leak regression tests and `query_metric`
-   need real Gold tables with PII-tagged columns.
-2. **Demo** — the whole flow, sources → Gold → agent, on one laptop.
-3. **Build template** for on-prem and air-gapped lakehouse engagements.
+What Mulgil is not: a pod viewer, a SQL editor, a DAG editor or a user
+directory. Those stay with k9s, your MCP client, Airflow and your IdP, and
+the console links to them.
 
-It is glue and sample models over upstream open-source projects. If a change
-makes Mulgil look like a product — its own API, its own UI, its own
-scheduler — it belongs upstream or in Sumun, not here.
+Everything in this repository is public and Apache-2.0. Revenue comes from
+build engagements, support and Sumun's commercial extensions.
 
 ## Stack
 
-| Layer | Component | Why this one |
-|---|---|---|
 One dbt project, three deployment profiles. The models, tests, PII tags and
 metric definitions are identical; only the target changes.
 
@@ -49,27 +50,37 @@ NAT); Athena costs $5 per TB scanned and nothing idle. Break-even is around
 Per-query scan bytes also give Sumun exact per-caller cost attribution.
 Choose `aws-trino` for high agent concurrency or sub-second latency.
 
-Spark is deliberately absent. Trino covers writes, `MERGE`, and table
-maintenance; add Spark only when a workload proves it needs it.
-
 ## Layout
 
 ```
+distro/                 the package: BOM.yaml (pinned versions = product version), profile overlays
 dbt/                    shared — Bronze, Silver, Gold models; seeds; metric definitions
-  models/bronze         raw, append-only
-  models/silver         conformed entities; PII columns tagged
-  models/gold           metric tables with data contracts
+ops/                    mulgil-ops — the console's only API; table maintenance, cost, pipeline state
+console/                integrated management UI (seven screens; see console/README.md)
 compose/                single-laptop fixture (a shrunken `sovereign`)
-  seaweedfs/            S3 gateway + Iceberg REST catalog
-  trino/                catalog config for Iceberg over SeaweedFS
 helm/mulgil/            `sovereign` on Kubernetes (values-sovereign.yaml)
 terraform/aws-serverless/  S3 Tables, Athena, Lake Formation, Step Functions
 terraform/aws-trino/       S3, Polaris, Trino on EKS, Airflow
-observability/          exporter config, Grafana defaults, event payload specs, cost extracts
+observability/          exporter config, alert rules, event payload specs, cost extracts
 docs/adr/               decisions
-docs/guide/             build guide (Korean): architecture, sizing, profiles, modeling, operations
+docs/guide/             build guides (Korean): architecture, sizing, sovereign cluster
 scripts/                bring-up, seed, teardown
 ```
+
+## Integrated management console
+
+| Screen | Shows | Can do |
+|---|---|---|
+| Overview | status, capacity, month-to-date cost, contract violations, open alerts | — |
+| Tables | layer, owner, PII tags, contract, freshness, health (small files, snapshots) | run or schedule `optimize`, `expire_snapshots`, orphan cleanup |
+| Pipelines | dbt run history, failed models, SLA breaches | re-run |
+| Cost (Chisu, 치수) | per profile, per table, per caller | — |
+| Storage | buckets, nodes, volumes, replication, disk trend | — |
+| Alerts | rules, channels, history | edit rules |
+| Governance | Sumun callers, budgets, masking status | — (read-only) |
+
+Time series live in Prometheus and alerts in Alertmanager; the console draws
+its own charts from PromQL. Grafana is an optional add-on for operators.
 
 ## What crosses the boundary into Sumun
 

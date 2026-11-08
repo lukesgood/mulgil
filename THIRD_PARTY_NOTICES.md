@@ -9,3 +9,5 @@
 | Apache Airflow | Apache-2.0 | sovereign / aws-trino |
 | PostgreSQL | PostgreSQL License | yes |
 | MinIO | AGPL-3.0 | **not included** — bring your own if already licensed |
+| Prometheus, Alertmanager | Apache-2.0 | yes |
+| Grafana | AGPL-3.0 | **optional**, unmodified upstream image only; Mulgil ships dashboards as JSON and never a modified build |

@@ -1,6 +1,10 @@
 # ADR 0001 — Mulgil is a reference platform, not a product
 
-Status: accepted · Date: 2026-11-08
+Status: superseded in part by ADR 0004 (2026-11-08) · Date: 2026-11-08
+
+> ADR 0004 makes Mulgil a package with its own console and ops API. The
+> 'no scheduler', 'public and Apache-2.0' and data-boundary points below
+> still hold; 'no API, no UI' does not.
 
 ## Context
 DataPond 1.x grew to eighteen components because platform features kept
