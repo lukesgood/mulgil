@@ -23,7 +23,7 @@ Iceberg(Parquet 압축)는 원본 대비 **1/4–1/6**이다. 고객이 말하�
 | 메타 | SeaweedFS filer ×2 + PostgreSQL | **파일 수**에 비례. PG 백업 1순위 |
 | 데이터 | SeaweedFS volume ×N | 로컬 NVMe/SSD. 네트워크 스토리지 금지 (복제 이중) |
 | 컴퓨트 | Trino coordinator ×1 + worker ×M, Airflow, dbt 러너 | 메모리가 전부 |
-| 관측 | Prometheus · Grafana · Loki | 컴퓨트와 분리 |
+| 카탈로그·관측·콘솔 | Polaris · Prometheus(보존 90일) · Alertmanager · mulgil-ops + 콘솔 · (선택) Grafana·Loki | 컴퓨트와 분리. 콘솔·ops는 소형(2 vCPU·4GB) |
 
 **데이터 노드와 컴퓨트 노드를 섞지 않는다.** 컴팩션 I/O와 쿼리 메모리가 충돌한다.
 
@@ -65,7 +65,19 @@ M 티어부터 PG 전용 노드, 매일 백업 + WAL.
 ```
 실디스크 = 압축후 데이터 × 복제계수 × (1 + 스냅샷 보존 비율 0.2) × 여유 1.3
 예: M 티어 10TB × 2 × 1.2 × 1.3 ≈ 31TB
+
+Erasure Coding 변형 (ADR 0005, 콜드 레이어 선택): 복제계수 2 → 1.4
+예: Bronze·audit 6TB를 EC로 두면 6 × 1.4 × 1.2 × 1.3 ≈ 13TB (복제 시 19TB)
+
+하이브리드 콜드 티어 (`cold_tier: s3`): 콜드 레이어는 온프렘 디스크 산정에서
+제외하고 S3/Glacier 비용으로 계산. 핫 레이어만 위 식.
 ```
+
+### 페더레이션(등급 B) 시 소스 부하 한도
+Trino `federated` 리소스 그룹 기본값: 동시 4, CPU 30분/시간 상한. 소스 DB에는
+읽기 전용 계정·읽기 복제본을 전제하고, 커넥터별 `max-splits`·
+`query.max-execution-time`을 보수적으로 둔다. 소스 쿼리 시간·커넥션 수가 반복
+알람이면 그 소스는 Bronze ELT로 전환한다 — 사이징이 아니라 설계로 푼다.
 
 ## 4. AWS 프로필
 

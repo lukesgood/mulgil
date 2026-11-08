@@ -13,8 +13,10 @@ README·ADR·코드 주석은 영어.
 | 03-aws-serverless | 엔지니어 | 미작성 | 첫 AWS 엔게이지먼트 |
 | 04-aws-trino | 엔지니어 | 미작성 | aws-trino 첫 구축 |
 | 05-modeling | 엔지니어·분석가 | 미작성 | dbt 프로젝트가 compose에서 한 번 돈 뒤 |
-| 06-ingestion | 엔지니어 | 미작성 | CDC 경로를 한 번 붙인 뒤 |
-| 07-operations | 운영자 | 미작성 | 운영 1개월 후 |
+| 06-ingestion | 엔지니어 | 미작성 | Trino ELT·filer 이벤트·weed mount 경로를 각 한 번 붙인 뒤 |
+| 07-operations | 운영자 | 미작성 (콘솔 명세는 `console/screens/`) | 운영 1개월 후 |
 | 08-sumun-boundary | Sumun·Mulgil 양쪽 엔지니어 | 미작성 | Sumun T2·T3 구현과 함께 |
-| 09-migration | 엔지니어 | 미작성 | sovereign↔aws 이동 테스트(Sumun O4) 통과 후 |
+| 09-migration | 엔지니어 | 미작성 | sovereign↔aws 이동 테스트(Sumun O4)·스토리지 이탈 테스트(M3) 통과 후 |
+| 10-federation | 엔지니어 | 미작성 | 소스 카탈로그 템플릿으로 고객 RDB 1종 연결 후 (등급 B 운영 수칙·소스 부하) |
+| [../license-review](../license-review.md) | 의사결정자·법무 | 작성 (2026-11-09) | BOM 핀마다 갱신 |
 | runbooks/ | 운영자 | 미작성 | 장애를 한 번 겪은 뒤, 겪은 것만 |

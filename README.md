@@ -110,6 +110,19 @@ Mulgil produces four things Sumun reads and never writes:
 Agents see Gold only. Bronze and Silver are reachable by engineers through
 Trino under the same policy tables Sumun enforces.
 
+## Documentation map
+
+| Want to… | Read |
+|---|---|
+| understand what is where and why | `docs/guide/00-architecture.md` |
+| size a cluster or price a profile | `docs/guide/01-sizing.md` |
+| build the on-prem SeaweedFS cluster | `docs/guide/02-sovereign.md` (+ infra team guide, published separately) |
+| see the console and its API | `console/README.md`, `console/screens/`, `ops/API.md` |
+| check versions shipped | `distro/BOM.yaml` |
+| check licenses | `docs/license-review.md`, `THIRD_PARTY_NOTICES.md` |
+| see why a decision was made | `docs/adr/README.md` |
+| work on the repo | `CLAUDE.md`, `docs/process/METHOD.md` |
+
 ## Quick start
 
 ```

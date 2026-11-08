@@ -1,9 +1,12 @@
 # Mulgil 아키텍처
 
-Mulgil(물길)은 소스에서 Gold까지 데이터를 나르는 레퍼런스 메달리온 레이크하우스다.
-제품이 아니라 구성이며, 끝에는 항상 [Sumun(수문)](https://github.com/lukesgood/sumun)이
-선다. 이 문서는 "무엇이 어디에 있고, 왜 거기 있는가"를 설명한다. 설치 순서는
-02–04, 모델링 규약은 05, 운영은 07에 있다.
+Mulgil(물길)은 소스에서 Gold까지 데이터를 나르는 메달리온 레이크하우스 **패키지**다
+(ADR 0004). 버전 고정 BOM, 세 배포 프로필, dbt 템플릿, 통합관리 콘솔로 구성되고,
+끝에는 항상 [Sumun(수문)](https://github.com/lukesgood/sumun)이 선다. 고객은
+레이크하우스를 먼저 짓지 않아도 된다 — 기존 소스를 Trino 카탈로그로 **연결**하면
+Sumun 거버넌스가 등급 B로 즉시 적용되고, 필요한 테이블만 Iceberg Gold로
+**적재**해 등급 A로 올린다 (ADR 0005). 이 문서는 "무엇이 어디에 있고, 왜 거기
+있는가"를 설명한다. 설치 순서는 02–04, 모델링 규약은 05, 운영은 07에 있다.
 
 ## 1. 설계 원칙
 
@@ -17,8 +20,16 @@ Mulgil(물길)은 소스에서 Gold까지 데이터를 나르는 레퍼런스 �
    Mulgil은 그 정책이 엔진 레벨로 내려온 형태(Trino `rules.json`,
    Lake Formation 권한)를 적용한다. 마스킹은 저장 시점이 아니라 조회 시점에,
    호출자별로.
-5. **Mulgil 고유 코드는 없다.** API·UI·스케줄러가 필요하면 상류 프로젝트나
-   Sumun으로 (ADR 0001).
+5. **고유 코드는 콘솔 하나, API 하나.** 콘솔(`console/`)과 `mulgil-ops`(`ops/`)는
+   데이터 자산(테이블·파이프라인·비용·스토리지·알람)만 다룬다. 파드·로그·SQL
+   편집·DAG 작성·사용자 관리는 만들지 않고 링크한다. 스케줄러는 없다 — 유지보수와
+   dbt는 Airflow/Step Functions가 돌린다 (ADR 0004).
+6. **연결 먼저, 적재는 점진.** 소스 카탈로그(등급 B)는 읽기 전용 발견 접근,
+   Iceberg Gold(등급 A)는 운영 접근. 등급 B에서 등급 A로 가는 길은 Trino ELT
+   `INSERT INTO iceberg… SELECT FROM 소스…` 한 문장이다 (ADR 0005).
+7. **SeaweedFS 고유 기능은 선택.** filer 이벤트·mount·EC·remote.sync는 쓰면
+   좋지만 없어도 동작한다. 제품은 어떤 S3 스토어에서도 돌아야 하고, 반기마다
+   스토리지 이탈 테스트로 그것을 증명한다 (ADR 0005).
 
 ## 2. 논리 아키텍처
 
@@ -26,7 +37,8 @@ Mulgil(물길)은 소스에서 Gold까지 데이터를 나르는 레퍼런스 �
 ┌─ 소스 ───────────────────────────────────────────────────────────┐
 │ RDBMS · SaaS API · 로그/이벤트 · 파일(S3/SFTP)                    │
 └──────┬───────────────────────────────────────────────────────────┘
-       │ 수집   배치: Airbyte / dbt seed · CDC: Debezium→Kafka→Iceberg Sink · 파일: 버킷 스캔
+       │ 수집   RDB: Trino ELT(dbt) · NAS: weed mount · 문서: filer 이벤트 · SaaS: Airbyte · 스트림: Kafka Connect Iceberg Sink
+       │        (등급 B) 소스 카탈로그는 적재 없이도 Trino 페더레이션으로 Sumun을 거쳐 질의 가능
        ▼
 ┌─ Bronze ─────────────────────────────────────────────────────────┐
 │ 원본 그대로. append-only. 스키마 느슨. _ingested_at 스탬프.          │
@@ -61,12 +73,14 @@ Silver는 "무엇인가"를 정하고, Gold는 "얼마인가"를 정한다.
 | 구성요소 | 책임 | 하지 않는 것 |
 |---|---|---|
 | **오브젝트 스토어** (SeaweedFS / S3) | Parquet 데이터 파일, Iceberg 메타데이터 파일 보관 | 권한 판단 (버킷 정책은 최후 방어선일 뿐) |
-| **Iceberg 카탈로그** (SeaweedFS 내장 REST / S3 Tables / Polaris) | 테이블 → 현재 메타데이터 포인터, 원자적 커밋, 네임스페이스 | 데이터 변환 |
-| **쿼리 엔진** (Trino / Athena) | SQL 실행, dbt 변환 실행, Iceberg 유지보수(`optimize`, `expire_snapshots`) | 스케줄링, 정책 원본 보관 |
+| **Iceberg 카탈로그** (Polaris 기본 / S3 Tables / SeaweedFS 내장 REST는 소규모) | 테이블 → 현재 메타데이터 포인터, 원자적 커밋, 네임스페이스, 권한·임시 자격증명 | 데이터 변환 |
+| **쿼리 엔진** (Trino / Athena) | SQL 실행, dbt 변환 실행, Iceberg 유지보수(`optimize`, `expire_snapshots`), **소스 카탈로그 페더레이션(등급 B)** — `federated` 리소스 그룹으로 격리 | 스케줄링, 정책 원본 보관 |
+| **소스 카탈로그** (PostgreSQL·MySQL·Oracle·SQL Server·Kafka·Elasticsearch·Hive 커넥터) | 기존 시스템을 적재 없이 질의 가능하게; dbt ELT의 소스 | 쓰기 (읽기 전용 계정·읽기 복제본 권장) |
 | **dbt** | 모델·테스트·문서·지표 정의. 리니지의 원본 | 데이터 이동(수집) |
 | **오케스트레이터** (Airflow / Step Functions) | dbt 실행 순서, 유지보수 주기, 실패 알림 | 변환 로직 |
-| **수집기** (Airbyte / Kafka Connect / DMS) | 소스 → Bronze 적재 | 정제 (Bronze는 원본) |
-| **관측** (Prometheus·Grafana·Loki / CloudWatch) | 메트릭·로그·알림 | — |
+| **수집 경로** (Trino ELT / weed mount / filer 이벤트 / Airbyte / Kafka Connect) | 소스 → Bronze 적재. RDB 기본은 Trino ELT, SaaS만 Airbyte | 정제 (Bronze는 원본) |
+| **관측 엔진** (Prometheus·Alertmanager / CloudWatch) | 시계열·알람 평가·라우팅 | 화면 (콘솔이 그림) |
+| **콘솔 + mulgil-ops** | 테이블 건강·유지보수, 파이프라인, 비용(치수), 스토리지, 알람 규칙, Sumun 사용량 뷰 | 파드·로그·SQL 편집·DAG 작성·사용자 관리 |
 | **Sumun** | 정책 원본, 조회 시점 집행, 감사 | 데이터 변환·적재 |
 
 ## 4. 물리 아키텍처 — 세 프로필
@@ -95,11 +109,13 @@ Silver는 "무엇인가"를 정하고, Gold는 "얼마인가"를 정한다.
   충돌한다.
 - 볼륨 스토리지는 로컬 디스크. 네트워크 스토리지(Ceph·NFS) 위에 올리면
   SeaweedFS 복제와 이중이 되어 성능·비용 모두 손해.
-- Polaris는 기본 꺼짐. Sumun의 credential vending이 필요하거나 두 번째
-  엔진이 카탈로그를 공유할 때 켠다. 그 전까지는 SeaweedFS 내장 REST 카탈로그.
+- Polaris가 기본 카탈로그다 (ADR 0005). 카탈로그가 스토리지 벤더에 묶이지
+  않게 하기 위함. SeaweedFS 내장 REST는 compose 픽스처와 소규모 설치용.
+- 선택: `cold_tier: s3` — 콜드 레이어를 `filer.remote.sync`로 S3/Glacier에
+  티어링하는 하이브리드 구성. 국내 규제 고객의 현실적 AWS 활용 경로.
 - 외부 통신 없음. 이미지는 사설 레지스트리, dbt 패키지는 벤더링.
 
-### 4.2 `aws-serverless` — AWS 기본
+### 4.2 `aws-serverless` — AWS 전용 경량 프로필
 
 ```
 S3 Tables (버킷당 Iceberg REST 카탈로그, 자동 컴팩션·스냅샷 만료)
@@ -114,7 +130,10 @@ CloudWatch 메트릭·로그 · Cost Explorer 태그(워크그룹별)
 - 고정비 ≈ 0. 비용 = 스캔 바이트. 사이징 대신 **파티션 설계**와 워크그룹의
   스캔 상한이 통제 수단이다.
 - Athena 동시성 상한(계정·리전별 큐)이 있으므로 에이전트 팜이 커지면
-  `aws-trino`로.
+  `aws-trino`로. 승격은 dbt 프로필 변경만이며 데이터는 움직이지 않는다.
+- 페더레이션은 Athena Federated Query(Lambda 커넥터)로 **Bronze 적재까지만**.
+  등급 B 에이전트 접근은 이 프로필에서 지원하지 않는다 (`federation.agent_access`
+  강제 false). 대상: AWS 전용, ~100TB 미만, 낮은 동시성 (ADR 0005).
 
 ### 4.3 `aws-trino` — 대규모 / 저지연
 
@@ -156,18 +175,20 @@ dbt 프로젝트와 규약만 가져간다 — `profiles.yml`의 타깃이 바�
    │ 아니오
 데이터가 폐쇄망·국내 보관 의무? ── 예 ──▶ sovereign
    │ 아니오
-월 스캔량 > ~130TB 또는 동시 쿼리 > ~30 또는 p95 < 1초 필요? ── 예 ──▶ aws-trino
+월 스캔량 > ~130TB 또는 동시 쿼리 > ~30 또는 p95 < 1초 필요
+   또는 기존 RDB·DW를 에이전트가 직접(등급 B) 질의해야 함? ── 예 ──▶ aws-trino
    │ 아니오
-                                                                  ▶ aws-serverless
+                                                                  ▶ aws-serverless (경량)
 ```
 
 손익분기 근거는 ADR 0002.
 
-### 4.6 수문과의 선후 — Phase 1은 물길이 필요 없다
+### 4.6 수문과의 선후 — Phase 1은 물길이 거의 필요 없다
 
-수문 Phase 1(문서 거버넌스, docs-only)은 테이블을 쓰지 않는다. 물길이 수문에
-필요해지는 시점은 Phase 2(테이블 거버넌스)부터이고, 그때 compose 픽스처가 수문의
-테스트 환경이 된다. 물길을 먼저 완성할 이유는 없고, 병행해도 서로를 막지 않는다.
+수문 Phase 1(문서 거버넌스)은 Iceberg를 쓰지 않는다. 등급 B 카탈로그 1개
+(PostgreSQL, 읽기 전용)만 Trino `rules.json`으로 얇게 붙여 "연결 먼저" 데모를
+보인다. 물길의 Iceberg 테이블·콘솔은 Phase 2a부터, 소스 카탈로그 템플릿·등급 B
+정책은 Phase 2b부터다. compose가 두 저장소 공통의 테스트 환경이다.
 
 ## 5. 데이터 흐름 — 한 레코드의 여정
 
@@ -233,10 +254,12 @@ s3://<landing-bucket>/docs/<collection>/<source>/<yyyy>/<mm>/<file>.manifest.jso
 테이블 수집과 문서 수집이 같은 소스에서 나오면 `source`·`source_key`가 둘을 잇는다.
 상세는 `06-ingestion.md`.
 
-## 6.2 관측 산출물 — 수문 ops 모듈이 읽는 신호
+## 6.2 관측 산출물 — 콘솔과 mulgil-ops가 읽는 신호
 
-물길은 화면을 만들지 않는다. 신호를 내보내고, 수문 ops 모듈(치수)과 Grafana가
-읽는다.
+화면은 물길 콘솔이다 (ADR 0004). 아래 신호를 `mulgil-ops`가 모아 콘솔 7화면
+(개요·테이블·파이프라인·비용(치수)·스토리지·알람·거버넌스)으로 그린다. Grafana는
+운영자용 선택 설치. Sumun 쪽 사용량은 `GET /usage/export`로만 받는다 — Sumun DB에
+붙지 않는다.
 
 | 신호 | 출처 | 형식 |
 |---|---|---|
@@ -245,16 +268,20 @@ s3://<landing-bucket>/docs/<collection>/<source>/<yyyy>/<mm>/<file>.manifest.jso
 | 저장 비용 — 테이블별 용량·증가율·스냅샷 묶인 용량 | Iceberg `files`·`snapshots` 메타데이터, S3 Storage Lens | 일 1회 CSV/JSON |
 | 컴퓨트 비용 — 쿼리별 스캔 바이트·CPU 시간 | Trino event listener / Athena 쿼리 히스토리 | 쿼리 로그 테이블 |
 
-`observability/`에 exporter 설정, 기본 Grafana 대시보드, 이벤트 페이로드 스펙,
-비용 추출 스크립트를 둔다. 수문 없이 쓰는 고객에게는 Grafana가 화면이다.
+`observability/`에 exporter 설정, 알람 규칙 번들, 이벤트 페이로드 스펙, 선택용
+Grafana 대시보드 JSON을 둔다. 콘솔 명세는 `console/screens/`, API는 `ops/API.md`.
 
 ## 7. 보안 모델 — 두 계층
 
 ```
-경로 A (에이전트·앱)   Sumun ──RLS·마스킹·예산──▶ Trino/Athena ──▶ Gold
+경로 A (에이전트·앱)   Sumun ──RLS·마스킹·예산──▶ Trino/Athena ──▶ Gold (등급 A)
+                      Sumun ──플러그인(T8)·PII 컬럼 차단·행 한도──▶ Trino ──▶ 소스 카탈로그 (등급 B)
 경로 B (엔지니어·BI)   Trino/Athena 직결 ──rules.json / Lake Formation──▶ Bronze·Silver·Gold
                                     ▲
                         같은 정책 테이블에서 생성
+
+등급 B는 설계상 약하다(소스 DB에 RLS를 걸 수 없음) — 발견·탐색 접근이고, 운영
+접근은 Gold 적재 후 등급 A에서만. 심의 문서는 이 말을 그대로 쓴다 (sumun ADR 0004).
 ```
 
 - 두 경로가 **같은 정책 원본**을 쓴다. 정책을 한 번 바꾸면 양쪽에 반영.
@@ -285,7 +312,8 @@ s3://<landing-bucket>/docs/<collection>/<source>/<yyyy>/<mm>/<file>.manifest.jso
 | Spark | 운영 부담 최대, Trino로 충분 | ADR 0003 |
 | MinIO | AGPL | SeaweedFS (Apache-2.0) |
 | Hive Metastore | REST 카탈로그가 표준 | SeaweedFS 내장 / S3 Tables / Polaris |
-| 자체 UI | 제품이 아님 | dbt docs · Airflow · Grafana · (선택) OpenMetadata · Sumun 콘솔 |
+| 파드·로그 뷰어, SQL 에디터, DAG 편집기, 사용자 관리 UI | 콘솔 범위 밖 — 1.x의 2,300줄 k8s 뷰어 실패 반복 금지 | k9s/Lens · MCP 클라이언트·Trino UI · Airflow · IdP·Polaris (콘솔이 링크) |
+| 자체 스케줄러 | Airflow/Step Functions로 충분 | ops 폴러는 수집만, 실행은 DAG 트리거 |
 | 스트리밍 엔진(Flink·RisingWave) | 1차 시장 수요 낮음 | Kafka Connect Iceberg Sink로 적재만, 실시간 질의는 범위 밖 |
 | 벡터 DB | Sumun(pgvector)의 몫 | — |
 
@@ -295,4 +323,6 @@ s3://<landing-bucket>/docs/<collection>/<source>/<yyyy>/<mm>/<file>.manifest.jso
 - `02-sovereign.md` / `03-aws-serverless.md` / `04-aws-trino.md` — 설치
 - `05-modeling.md` — 메달리온 규약, PII 태깅, 계약
 - `08-sumun-boundary.md` — 경계 산출물 포맷
-- `docs/adr/` — 결정 기록
+- `../license-review.md` — 오픈소스 라이선스 검토
+- `console/screens/`, `ops/API.md` — 콘솔·ops 명세
+- `docs/adr/` — 결정 기록 (0004 패키지·콘솔, 0005 연결 먼저·SeaweedFS 기능·헷지)
