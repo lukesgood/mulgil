@@ -1,0 +1,13 @@
+# Metric names mulgil-ops may proxy to the console and accept in custom alert
+# rules. Anything not listed is rejected with 422 metric_not_allowed.
+# Only Mulgil component exporters; no Sumun, no other namespaces.
+prefixes:
+  - SeaweedFS_          # seaweedfs master/volume/filer exporter
+  - trino_              # trino jmx exporter
+  - pg_                 # postgres_exporter
+  - node_               # node_exporter (storage/compute nodes)
+  - airflow_            # airflow statsd exporter
+  - mulgil_ops_         # ops self-metrics (health scores, cost_daily, collector lag)
+exact:
+  - up
+  - probe_success

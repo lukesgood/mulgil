@@ -13,7 +13,7 @@ components:
   dbt-trino:       { version: "1.9", profiles: [sovereign, aws-trino, local] }
   dbt-athena:      { version: "1.9", profiles: [aws-serverless] }
   airflow:         { version: "2.10", profiles: [sovereign, aws-trino] }
-  prometheus:      { version: "2.5x" }
+  prometheus:      { version: "2.5x", retention: "90d", note: "90-day trends and exhaustion forecast depend on this" }
   alertmanager:    { version: "0.27" }
   grafana:         { version: "11", optional: true, license: AGPL-3.0, note: "unmodified image, dashboards as JSON only" }
   mulgil-ops:      { version: "0.1.0-dev", source: ops/ }

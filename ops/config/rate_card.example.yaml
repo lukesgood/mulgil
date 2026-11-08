@@ -1,0 +1,9 @@
+# sovereign profile only. Customer-entered. Copy to rate_card.yaml or set via
+# PUT /cost/rate-card. Empty → console shows resource quantities, not money.
+currency: KRW
+node_month:              # monthly equivalent per node role (hardware amortisation + power + space)
+  - { role: storage,  amount: 0 }
+  - { role: compute,  amount: 0 }
+  - { role: control,  amount: 0 }
+storage_tb_month: 0      # per TB stored (after replication)
+cpu_hour: 0              # per engine CPU-hour (from Trino query stats)

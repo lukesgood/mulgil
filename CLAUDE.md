@@ -11,9 +11,12 @@ Trino/Athena, Polaris, dbt and Airflow. ADR 0004 replaced the earlier
 - One console (`console/`), one ops API (`ops/`). The console manages data
   assets — tables, pipelines, cost, storage, alerts — never pods, logs, SQL
   editing, DAG authoring or users (ADR 0004). Link to k9s/Airflow/IdP instead.
-- All writes go through `mulgil-ops`, are maintenance-only, idempotent and
-  reversible. No Mulgil scheduler: maintenance is scheduled via Airflow or
-  Step Functions runs.
+- All writes go through `mulgil-ops`, are maintenance-only, idempotent,
+  reversible, dry-run first, and recorded append-only in `ops_actions`.
+  No Mulgil scheduler for business work: maintenance and dbt run via Airflow
+  or Step Functions. The ops poller only collects; it changes nothing outside.
+- `mulgil-ops` reaches Sumun through `GET /usage/export` only — never Sumun's DB.
+- One console = one profile (v0). Table id = catalog FQN.
 - Time series live in Prometheus, alerts in Alertmanager. Grafana is optional
   and never modified (AGPL) — dashboards as JSON only.
 - One dbt project for all profiles. A model that only works on one target is a bug.

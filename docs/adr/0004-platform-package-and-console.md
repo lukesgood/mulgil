@@ -58,7 +58,12 @@ permission management (IdP, Polaris). The console links to these.
   and draws its own charts), Alertmanager for alert evaluation and routing.
   Grafana is an *optional* add-on for operators, not the product screen.
 - **Scheduling stays in Airflow / Step Functions.** `mulgil-ops` schedules
-  maintenance by creating DAG runs, not with a scheduler of its own.
+  maintenance by creating DAG runs, not with a scheduler of its own. Its
+  internal poller only *collects* (health, cost, capacity) and never changes
+  external state; that is observation, not scheduling.
+- **Sumun is reached through its API only** (`GET /usage/export`, aggregated
+  and pseudonymised). `mulgil-ops` never connects to Sumun's database.
+- **One console instance per profile** in v0; no environment switcher.
 - **Chisu (치수)** is the name of the console's cost and capacity module. The
   earlier idea of an ops module inside Sumun is withdrawn (see sumun ADR
   0003): platform cost and resources belong to the platform; Sumun supplies
@@ -73,8 +78,14 @@ permission management (IdP, Polaris). The console links to these.
   unchanged.
 
 ## Consequences
-- Phase 2 grows by the seven console screens (roughly 4–6 weeks solo); the
-  separate "dedicated console" item in Phase 3 disappears.
+- Estimated solo effort for all seven screens is about 10 weeks. They are
+  split: **Phase 2 — Tables, Pipelines, Alerts, Overview (~6 weeks)**;
+  **Phase 3 — Storage, Cost, Governance**, the last two alongside Sumun O2
+  (cost attribution) and `GET /usage/export`. The separate "dedicated
+  console" item in Phase 3 disappears.
+- Table health is computed from Iceberg metadata files read directly from
+  object storage, so the console itself does not generate Athena scan cost.
+- Prometheus retention is at least 90 days (BOM).
 - `distro/BOM.yaml` pins component versions; the package version is the
   product version. A profile that drifts from the BOM is a bug.
 - From DataPond 1.x, keep the patterns of `metrics.py` (async, never raises,
