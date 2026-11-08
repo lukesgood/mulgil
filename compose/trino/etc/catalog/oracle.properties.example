@@ -1,0 +1,7 @@
+connector.name=oracle
+connection-url=jdbc:oracle:thin:@${ENV:SRC_ORA_HOST}:1521/${ENV:SRC_ORA_SERVICE}
+connection-user=${ENV:SRC_ORA_USER}
+connection-password=${ENV:SRC_ORA_PASSWORD}
+oracle.number.default-scale=10
+join-pushdown.enabled=true
+write.enabled=false

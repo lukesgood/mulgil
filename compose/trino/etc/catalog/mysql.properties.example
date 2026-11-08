@@ -1,0 +1,7 @@
+connector.name=mysql
+connection-url=jdbc:mysql://${ENV:SRC_MYSQL_HOST}:3306
+connection-user=${ENV:SRC_MYSQL_USER}
+connection-password=${ENV:SRC_MYSQL_PASSWORD}
+join-pushdown.enabled=true
+aggregation-pushdown.enabled=true
+write.enabled=false

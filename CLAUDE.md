@@ -5,7 +5,8 @@ engagements and bundled with Sumun (lukesgood/sumun): a versioned
 distribution (BOM, Helm umbrella, Terraform, compose), a dbt template,
 build guides, and an integrated management console over SeaweedFS,
 Trino/Athena, Polaris, dbt and Airflow. ADR 0004 replaced the earlier
-"reference platform, not a product" stance (ADR 0001).
+"reference platform, not a product" stance (ADR 0001); ADR 0005 added the
+"connect first, land progressively" entry model and the hedges.
 
 ## Non-negotiables
 - One console (`console/`), one ops API (`ops/`). The console manages data
@@ -19,7 +20,16 @@ Trino/Athena, Polaris, dbt and Airflow. ADR 0004 replaced the earlier
 - One console = one profile (v0). Table id = catalog FQN.
 - Time series live in Prometheus, alerts in Alertmanager. Grafana is optional
   and never modified (AGPL) — dashboards as JSON only.
-- One dbt project for all profiles. A model that only works on one target is a bug.
+- One dbt project for all profiles. A **Gold** model that only works on one
+  target is a bug; Bronze ELT models over federated sources declare
+  `meta.profiles` (ADR 0005).
+- Connect first, land progressively (ADR 0005): federation mode is a
+  supported entry; RDB ingestion default is Trino ELT via dbt; tier-B queries
+  run in the `federated` resource group with read-only source accounts.
+- SeaweedFS-specific features (filer events, mount, EC, remote.sync) are
+  optional. The product must run on any S3 store; Polaris is the default
+  catalog. Storage exit test twice a year.
+- Trino is "the engine" in product text, never a product name.
 - Every profile matches `distro/BOM.yaml`. Version drift is a bug.
 - PII is tagged in dbt `meta.pii`, never masked in Silver/Gold — masking is Sumun's per-caller job.
 - Gold tables carry a data contract (owner, sla_hours, contract) in schema.yml meta.

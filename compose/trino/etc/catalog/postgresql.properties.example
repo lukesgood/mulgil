@@ -1,0 +1,12 @@
+# Federated source (governance tier B). Copy to postgresql.properties.
+# Use a READ-ONLY account on a READ REPLICA. Credentials from .env only.
+connector.name=postgresql
+connection-url=jdbc:postgresql://${ENV:SRC_PG_HOST}:5432/${ENV:SRC_PG_DB}
+connection-user=${ENV:SRC_PG_USER}
+connection-password=${ENV:SRC_PG_PASSWORD}
+# conservative defaults — raise only with the source DBA
+postgresql.array-mapping=AS_ARRAY
+join-pushdown.enabled=true
+aggregation-pushdown.enabled=true
+domain-compaction-threshold=256
+write.enabled=false

@@ -1,0 +1,13 @@
+{
+  "rootGroups": [
+    { "name": "governed",  "softMemoryLimit": "70%", "hardConcurrencyLimit": 20, "maxQueued": 100 },
+    { "name": "federated", "softMemoryLimit": "20%", "hardConcurrencyLimit": 4,  "maxQueued": 20,
+      "softCpuLimit": "10m", "hardCpuLimit": "30m", "cpuQuotaPeriod": "1h" },
+    { "name": "maintenance","softMemoryLimit": "30%", "hardConcurrencyLimit": 2,  "maxQueued": 10 }
+  ],
+  "selectors": [
+    { "source": "sumun-tier-b", "group": "federated" },
+    { "source": "mulgil-ops",   "group": "maintenance" },
+    { "group": "governed" }
+  ]
+}

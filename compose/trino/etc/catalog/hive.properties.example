@@ -1,0 +1,6 @@
+# Existing Hive/HDFS or S3 warehouse. Read-only here; land into Iceberg with dbt.
+connector.name=hive
+hive.metastore.uri=thrift://${ENV:SRC_HMS_HOST}:9083
+hive.non-managed-table-writes-enabled=false
+hive.allow-drop-table=false
+hive.allow-rename-table=false

@@ -13,9 +13,15 @@ tool server that decides which agents and applications may drink from Gold.
 Mulgil is delivered as a **package** (ADR 0004): one bill of materials, three
 deployment profiles, a dbt template, build guides, and an integrated
 management console that manages the data assets — tables, pipelines, cost,
-storage, alerts — in one place. It is built for organisations that do not
-yet have a lakehouse and want one that is governed for AI agents from day
-one; organisations that already have a platform use Sumun alone.
+storage, alerts — in one place.
+
+**You can start without a migration** (ADR 0005). In federation mode Trino
+connects your existing PostgreSQL, Oracle, SQL Server, MySQL, Kafka,
+Elasticsearch or Hive sources behind one endpoint, and Sumun governs agent
+access to them from day one (governance tier B: read-only, aggregate-first,
+PII columns blocked). Tables that need full governance — row-level security,
+PII masking, data contracts — are landed into Iceberg Gold with Trino ELT
+through dbt (tier A). Connect, govern, then land what matters.
 
 What Mulgil is not: a pod viewer, a SQL editor, a DAG editor or a user
 directory. Those stay with k9s, your MCP client, Airflow and your IdP, and
@@ -32,18 +38,26 @@ metric definitions are identical; only the target changes.
 | Layer | `sovereign` (on-prem, air-gapped) | `aws-serverless` (AWS default) | `aws-trino` (AWS, large or low-latency) |
 |---|---|---|---|
 | Object store | SeaweedFS | S3 | S3 |
-| Iceberg catalog | SeaweedFS built-in REST, or Polaris | S3 Tables (built-in REST) | Polaris |
+| Iceberg catalog | Polaris (default); SeaweedFS built-in REST for small installs | S3 Tables (built-in REST) | Polaris |
 | Query + transform engine | Trino on Kubernetes | Athena (Trino-based engine) | Trino on EKS |
 | dbt adapter | dbt-trino | dbt-athena | dbt-trino |
 | Orchestration | Airflow on Kubernetes | Step Functions or scheduled CI; MWAA optional | Airflow on EKS |
 | Iceberg maintenance | Trino `optimize` / `expire_snapshots` via Airflow | S3 Tables automatic compaction; Athena `OPTIMIZE`/`VACUUM` | Trino via Airflow |
 | Second-layer governance (engineers via SQL) | Trino `rules.json` generated from Sumun policies | Lake Formation permissions generated from Sumun policies | Trino `rules.json` |
-| Ingestion (optional) | Airbyte, Kafka Connect Iceberg Sink | Airbyte, DMS, Glue, Kinesis | Airbyte, Kafka Connect |
+| Federated sources (tier B) | Trino connectors, `federated` resource group | Athena Federated Query — Bronze landing only, no tier-B agent access | Trino connectors |
+| Ingestion defaults | RDB: Trino ELT via dbt · NAS paths: `weed mount` · documents: filer events · SaaS: Airbyte · streams: Kafka Connect Iceberg Sink | Athena Federated Query, DMS, Glue, Kinesis | Trino ELT via dbt, Kafka Connect |
+| Cold tier (optional) | SeaweedFS erasure coding; `filer.remote.sync` to S3/Glacier (hybrid) | S3 storage classes | S3 storage classes |
 
 Spark is deliberately absent. Trino and Athena cover writes, `MERGE` and
 table maintenance; add Spark only when a workload proves it needs it.
 
-**Why serverless is the AWS default.** Trino on EKS costs roughly $650–750
+**Profiles.** `sovereign` and `aws-trino` carry the full feature set.
+`aws-serverless` is the lightweight profile for AWS-only customers under
+roughly 100 TB with low agent concurrency; promotion to `aws-trino` changes
+the dbt profile only and moves no data. Regulated customers usually consume
+AWS through the `sovereign` hybrid cold tier instead.
+
+**Why serverless is the AWS default for cloud-only customers.** Trino on EKS costs roughly $650–750
 a month before the first query (three m6i.xlarge nodes, EKS control plane,
 NAT); Athena costs $5 per TB scanned and nothing idle. Break-even is around
 130 TB scanned a month, which mid-size Gold-layer workloads rarely reach.

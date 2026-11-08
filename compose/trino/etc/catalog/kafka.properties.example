@@ -1,0 +1,6 @@
+# Tier-B reads over topics; for durable landing use Kafka Connect Iceberg Sink.
+connector.name=kafka
+kafka.nodes=${ENV:SRC_KAFKA_BOOTSTRAP}
+kafka.table-names=events.orders,events.clicks
+kafka.hide-internal-columns=true
+kafka.table-description-dir=/etc/trino/kafka

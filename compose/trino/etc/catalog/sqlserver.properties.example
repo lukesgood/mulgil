@@ -1,0 +1,6 @@
+connector.name=sqlserver
+connection-url=jdbc:sqlserver://${ENV:SRC_MSSQL_HOST}:1433;databaseName=${ENV:SRC_MSSQL_DB};encrypt=true;trustServerCertificate=false
+connection-user=${ENV:SRC_MSSQL_USER}
+connection-password=${ENV:SRC_MSSQL_PASSWORD}
+join-pushdown.enabled=true
+write.enabled=false

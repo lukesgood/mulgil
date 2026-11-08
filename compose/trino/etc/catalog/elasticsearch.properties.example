@@ -1,0 +1,8 @@
+connector.name=elasticsearch
+elasticsearch.host=${ENV:SRC_ES_HOST}
+elasticsearch.port=9200
+elasticsearch.default-schema-name=default
+elasticsearch.security=PASSWORD
+elasticsearch.auth.user=${ENV:SRC_ES_USER}
+elasticsearch.auth.password=${ENV:SRC_ES_PASSWORD}
+elasticsearch.tls.enabled=true
