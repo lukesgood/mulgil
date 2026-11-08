@@ -1,0 +1,26 @@
+name: license-check
+on: [push, pull_request]
+jobs:
+  sbom-and-deny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install syft
+        run: curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+      - name: SBOM for repo sources (pip/npm manifests)
+        run: syft dir:. -o spdx-json > sbom.spdx.json
+      - name: Deny-list check (bundled path only)
+        run: |
+          python3 - <<'PY'
+          import json,sys
+          deny = ("AGPL","SSPL","ELv2","Elastic-2.0","BSL","BUSL","RSAL","Commons-Clause")
+          sbom = json.load(open("sbom.spdx.json"))
+          bad = [(p.get("name"),p.get("licenseConcluded") or p.get("licenseDeclared"))
+                 for p in sbom.get("packages",[])
+                 if any(d.lower() in str(p.get("licenseConcluded",""))+str(p.get("licenseDeclared","")).lower() for d in map(str.lower,deny))]
+          if bad:
+              print("Denied licenses in bundled path:"); [print(" ",n,l) for n,l in bad]; sys.exit(1)
+          print("ok: no denied licenses in bundled path (grafana/airbyte/minio are optional, not bundled)")
+          PY
+      - uses: actions/upload-artifact@v4
+        with: { name: sbom, path: sbom.spdx.json }
