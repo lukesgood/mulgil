@@ -11,7 +11,7 @@ Two kinds of Bronze model:
   models:
     - name: bronze_src_crm_customers
       meta:
-        profiles: [sovereign, aws-trino]   # not aws-serverless (ADR 0005)
+        profiles: [trino-k8s]   # not athena (ADR 0005/0006)
         source_kind: federated
   ```
 
