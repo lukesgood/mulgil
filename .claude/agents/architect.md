@@ -16,7 +16,11 @@ Boundaries you enforce:
 - Mulgil reaches Sumun only through `GET /usage/export`, never Sumun's database.
 - Engines (Trino, Athena, others) are adapters. No engine-specific logic outside
   the adapter package. Trino is "the engine" in product text, never a name.
-- Mulgil's console and `mulgil-ops` manage data assets only (tables, pipelines,
+- Engine at the centre, storage neutral (mulgil ADR 0006): nothing may require a
+  specific object store; SeaweedFS is storage option A only. Tier-B enforcement
+  is OPA bundle first, plugin then rules.json as fallbacks (sumun ADR 0005).
+- Effective permission = agent ∩ user; agents hold no standing credentials.
+- The operations console (code in sumun ee/, specs in mulgil) and `mulgil-ops` manage data assets only (tables, pipelines,
   cost, storage, alerts); never pods, logs, SQL editing, DAG authoring, users.
   All ops writes are maintenance-only, dry-run first, append-only logged. No
   Mulgil scheduler; the ops poller only collects.
