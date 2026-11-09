@@ -1,22 +1,21 @@
-# console — Mulgil integrated management UI
+# console — specifications only
 
-Next.js. Talks only to `mulgil-ops`. Shares a design-system package and
-OIDC login with Sumun's frontend so a customer sees one product.
+The operations console is part of Sumun's commercial edition; its source
+lives in **sumun `ee/console`** (ADR 0006). This directory keeps the public
+specifications so the console stays a contract that can be implemented by
+anyone, including an outside team, against `../ops/API.md`.
 
-## Screens (Phase 2, fixed at seven — ADR 0004)
-1. Overview — status line, capacity, month-to-date cost, contract violations, open alerts
-2. Tables — Bronze/Silver/Gold list; owner, PII tags, contract, freshness, health; maintenance run/schedule
-3. Pipelines — dbt run history, failed models, re-run
-4. Cost (Chisu) — per profile, per table, per caller
-5. Storage — buckets, nodes, volumes, replication, disk trend
-6. Alerts — rules, channels, history
-7. Governance — Sumun callers, budgets, masking status (read-only embed)
+## Screens (seven, fixed)
+| # | Screen | Phase | Note |
+|---|---|---|---|
+| 1 | Overview | 2a | status line, capacity, cost, violations, alerts |
+| 2 | **Sources & queries** | 2a | catalog connections, source load, query history (no SQL text), resource groups; storage backends as a tab |
+| 3 | Tables — landing zone | 2b | hidden when the landing zone is not installed |
+| 4 | Pipelines | 2b | hidden likewise |
+| 5 | Cost (Chisu) | 3 | per profile, per table, per caller |
+| 6 | Alerts | 2a | bundled rules incl. source-load rules |
+| 7 | Governance | 3 | Sumun usage, read-only via `GET /usage/export` |
 
-## Not screens
-Pods/logs → k9s or Lens · SQL → MCP client or Trino UI · DAGs → Airflow ·
-Users/permissions → IdP and Polaris. Each gets a link, not a page.
-
-`screens/` holds one spec per screen (purpose, data and ops endpoints,
-actions, empty/error states, acceptance criteria). The endpoints they
-reference are defined in `../ops/API.md`. No component is written before
-its spec's acceptance criteria are agreed.
+## Not screens, ever
+SQL editor or query execution · pods/logs (k9s, Lens) · DAG authoring
+(Airflow) · users/permissions (IdP, catalog) · policy editing (Sumun console).

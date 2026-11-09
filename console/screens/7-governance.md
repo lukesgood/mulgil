@@ -1,6 +1,6 @@
 # 7. 거버넌스 (Governance) — Sumun 읽기 전용 뷰
 
-> Phase 3. Sumun `GET /usage/export`가 먼저 있어야 한다.
+> Phase 3. 수문 `GET /usage/export`가 먼저 있어야 한다.
 
 ## 목적
 플랫폼 운영자가 "누가 데이터를 얼마나 쓰고 있고 마스킹이 걸리고 있는가"를

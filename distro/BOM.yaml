@@ -1,25 +1,31 @@
-# Mulgil package bill of materials.
-# The package version is the product version. Every profile (compose, helm,
-# terraform) must deploy exactly these versions; drift is a bug (ADR 0004).
-# Upgrade = bump here, run the compose smoke test, then update profiles.
+# Mulgil bill of materials — the execution layer of Sumun (ADR 0006).
+# Every profile deploys exactly these versions; drift is a bug.
 package: mulgil
 version: 0.1.0-dev
-components:
-  seaweedfs:       { version: "3.9x", note: "pin exact tag before 0.1.0; built-in Iceberg REST (table buckets)" }
-  trino:           { version: "479" }
-  apache-polaris:  { version: "1.x", optional: true, profiles: [sovereign, aws-trino] }
-  postgresql:      { version: "16" }
-  dbt-core:        { version: "1.9" }
-  dbt-trino:       { version: "1.9", profiles: [sovereign, aws-trino, local] }
-  dbt-athena:      { version: "1.9", profiles: [aws-serverless] }
-  airflow:         { version: "2.10", profiles: [sovereign, aws-trino] }
-  prometheus:      { version: "2.5x", retention: "90d", note: "90-day trends and exhaustion forecast depend on this" }
-  alertmanager:    { version: "0.27" }
-  grafana:         { version: "11", optional: true, license: AGPL-3.0, note: "unmodified image, dashboards as JSON only" }
-  mulgil-ops:      { version: "0.1.0-dev", source: ops/ }
-  mulgil-console:  { version: "0.1.0-dev", source: console/ }
-  sumun:           { version: ">=2.0.0-dev", source: "https://github.com/lukesgood/sumun", note: "bundled component; see sumun ADR 0003" }
-aws-managed:
-  athena:          { engine: "v3", profiles: [aws-serverless] }
-  s3-tables:       { profiles: [aws-serverless] }
-  lake-formation:  { profiles: [aws-serverless] }
+profiles: [trino-k8s, athena]
+engine:
+  trino:            { version: "479", required: true }
+  trino-opa-plugin: { bundled_with: trino, note: "tier-B enforcement; spike in Phase 2a" }
+  trino-gateway:    { version: "1.x", optional: true, phase: 3 }
+  prometheus:       { version: "2.5x", retention: "90d" }
+  alertmanager:     { version: "0.27" }
+  postgresql:       { version: "16", note: "mulgil_ops schema, Airflow metadata" }
+  mulgil-ops:       { version: "0.1.0-dev", source: ops/ }
+landing_zone:        # optional module
+  apache-polaris:   { version: "1.x" }
+  dbt-core:         { version: "1.9" }
+  dbt-trino:        { version: "1.9", profiles: [trino-k8s] }
+  dbt-athena:       { version: "1.9", profiles: [athena] }
+  airflow:          { version: "2.10", profiles: [trino-k8s] }
+storage:             # pluggable; the customer's store is the default
+  byo-s3:           { kinds: [s3, minio-customer-licence, ceph-rgw, other-s3-compatible], default: true }
+  seaweedfs:        { version: "3.9x", option: A, source: storage/seaweedfs/, note: "only when the customer has no object store" }
+optional:
+  grafana:          { version: "11", license: AGPL-3.0, note: "unmodified image, dashboards as JSON only" }
+sumun:
+  server:           { version: ">=2.0.0-dev", source: "https://github.com/lukesgood/sumun" }
+  console:          { source: "sumun ee/console", note: "code is commercial; specs in console/screens/" }
+aws_managed:
+  athena:           { engine: "v3", profiles: [athena] }
+  s3-tables:        { profiles: [athena] }
+  lake-formation:   { profiles: [athena] }

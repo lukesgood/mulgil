@@ -1,4 +1,4 @@
-# sovereign profile only. Customer-entered. Copy to rate_card.yaml or set via
+# trino-k8s on-prem only (no cloud bill). Customer-entered. Copy to rate_card.yaml or set via
 # PUT /cost/rate-card. Empty → console shows resource quantities, not money.
 currency: KRW
 node_month:              # monthly equivalent per node role (hardware amortisation + power + space)

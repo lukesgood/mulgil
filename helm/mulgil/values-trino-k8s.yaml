@@ -1,4 +1,4 @@
-# Mulgil `sovereign` — on-prem / air-gapped. No egress.
+# Mulgil `trino-k8s` — on-prem / air-gapped. No egress.
 seaweedfs:
   enabled: true
   master: { replicas: 3 }

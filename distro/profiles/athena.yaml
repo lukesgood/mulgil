@@ -1,0 +1,3 @@
+# Profile overlay: athena — references distro/BOM.yaml (ADR 0006)
+profile: athena
+bom: ../BOM.yaml

@@ -6,6 +6,7 @@
 
 ## 범위 선언 (v0)
 
+- **엔진 중심.** ops는 엔진(Trino)과 그에 연결된 것(소스 카탈로그, 선택적 랜딩존, 그 저장소)을 본다. 저장소 전용 기능은 옵션 A(SeaweedFS)일 때만 활성 (ADR 0006).
 - **1 콘솔 = 1 프로파일.** 한 ops 인스턴스는 하나의 배포 프로파일만 본다.
   여러 환경을 쓰는 고객은 콘솔을 환경마다 둔다. 환경 선택기는 v0에 없다.
 - **테이블 식별자**는 카탈로그 FQN `catalog.schema.table`. dbt manifest에
@@ -33,6 +34,9 @@
 | 메서드 | 경로 | 용도 | 소스 |
 |---|---|---|---|
 | GET | `/overview` | 1 개요 화면 전체 | 아래 모두 |
+| GET | `/sources` · `/sources/{id}/load` | 소스 카탈로그 연결 상태·등급·계정 유형, 소스별 부하(쿼리 수·p95·동시성·커넥션) | Trino 메타데이터 조회, 이벤트 리스너, 소스 exporter |
+| GET | `/queries` | 쿼리 이력 — 호출자(가명화)·리소스 그룹·소스·상태·시간·CPU·스캔 바이트. **쿼리 텍스트 미포함** | Trino 이벤트 리스너 / Trino Gateway |
+| GET | `/engine/resource-groups` | governed/federated/maintenance 사용률·큐·거부 | Trino JMX |
 | GET | `/tables` | 테이블 목록 (`?layer=&owner=&health=&q=`) | dbt manifest, Iceberg 메타 |
 | GET | `/tables/{id}` | 상세: 스키마, PII 태그, 계약, 스냅샷, 파일 통계, 최근 유지보수 | Iceberg 메타, dbt |
 | GET | `/tables/{id}/health` | 건강 점수와 산출 근거 | Iceberg 메타 |
@@ -42,8 +46,8 @@
 | GET | `/cost/summary` | 기간별 총비용, 프로파일 구성 (`?from=&to=`) | 비용 집계 |
 | GET | `/cost/by-table` | 테이블별 저장·스캔 비용 | Iceberg 메타 × 단가, Athena 로그 |
 | GET | `/cost/by-caller` | 호출자별 비용 | Sumun `GET /usage/export` |
-| GET | `/storage/summary` | 버킷 용량, 노드·볼륨·복제 상태 | SeaweedFS master, S3 API, Prometheus |
-| GET | `/storage/nodes` | 노드별 디스크, 볼륨 수, 상태 | 동일 |
+| GET | `/storage/summary` | 랜딩존 저장소 백엔드(S3 호환 아무 것) 용량·추이; 랜딩존 미설치면 404 `module_not_installed` | S3 API, Prometheus; SeaweedFS master는 옵션 A일 때만 |
+| GET | `/storage/nodes` | 노드별 디스크·볼륨·복제 — **옵션 A(SeaweedFS)일 때만**, 아니면 404 | SeaweedFS master |
 | GET | `/metrics/query` | PromQL 프록시 (`?q=&from=&to=&step=`). 쿼리에 등장하는 메트릭명이 모두 `ops/config/metrics_allowlist.yaml`에 있어야 함; 아니면 `422 metric_not_allowed` | Prometheus |
 | GET | `/alerts/rules` · `/alerts/history` | 규칙, 발생 이력 | 규칙 파일, Alertmanager API |
 | GET | `/governance/callers` · `/governance/usage` | Sumun 호출자, 예산, 마스킹 적용 건수 | **Sumun 집계 API** `GET /usage/export` (sumun ADR 0003). Sumun DB에 직접 붙지 않음 |
@@ -53,12 +57,12 @@
 
 | 메서드 | 경로 | 동작 | 실행 방식 |
 |---|---|---|---|
-| POST | `/tables/{id}/maintenance` | `{action: optimize\|expire_snapshots\|remove_orphan_files, params, dry_run}` | sovereign/aws-trino: Airflow DAG `mulgil_maintenance` 트리거. aws-serverless: Athena `OPTIMIZE`/`VACUUM` 문 실행. 동일 테이블·동일 action이 진행 중이면 `action_in_progress` |
+| POST | `/tables/{id}/maintenance` | `{action: optimize\|expire_snapshots\|remove_orphan_files, params, dry_run}` | trino-k8s: Airflow DAG `mulgil_maintenance` 트리거. athena: Athena `OPTIMIZE`/`VACUUM` 문 실행. 동일 테이블·동일 action이 진행 중이면 `action_in_progress` |
 | PUT | `/tables/{id}/maintenance/schedule` | `{optimize_cron, expire_older_than_days, retain_last}` | DAG 변수 갱신. 스케줄러는 Airflow |
 | POST | `/pipelines/runs/{run_id}/rerun` | 실패 모델만 또는 전체 | Airflow DAG 재실행 / Step Functions 재시작 |
 | PUT | `/alerts/rules/{name}` · DELETE | 임계값·심각도·채널 | rule 파일 렌더 → Prometheus reload, Alertmanager 라우트 갱신 |
 | POST | `/alerts/{fingerprint}/silence` | 기간·사유 | Alertmanager silence |
-| PUT | `/cost/rate-card` | `{currency, node_month: [{role, amount}], storage_tb_month, cpu_hour, updated_by}` — sovereign만; 저장 시 `cost_daily` 재계산 작업 생성 | mulgil_ops.rate_card |
+| PUT | `/cost/rate-card` | `{currency, node_month: [{role, amount}], storage_tb_month, cpu_hour, updated_by}` — trino-k8s 온프렘만; 저장 시 `cost_daily` 재계산 작업 생성 | mulgil_ops.rate_card |
 
 쓰기 응답은 `{action_id, status: accepted, track: "/actions/{action_id}"}`.
 `dry_run: true`는 영향 범위(대상 파일 수·바이트·스냅샷 수)만 반환합니다.
@@ -109,10 +113,10 @@ Prometheus 보존은 **최소 90일**(BOM `prometheus.retention: 90d`). 90일 �
 
 ## 비용 산식 (v0)
 
-- `aws-serverless`: Athena 스캔 바이트 × $5/TB + S3 Tables 저장·요청 요금
+- `athena`: Athena 스캔 바이트 × $5/TB + S3 Tables 저장·요청 요금
   (CUR) + 유지보수 compaction 요금.
-- `aws-trino`: CUR의 EKS·EC2·S3 비용을 테이블 바이트 비율로 배분.
-- `sovereign`: 온프렘 단가표(`ops/config/rate_card.yaml` — 노드 월 환산액,
+- `trino-k8s (EKS)`: CUR의 EKS·EC2·S3 비용을 테이블 바이트 비율로 배분.
+- `trino-k8s` 온프렘: 온프렘 단가표(`ops/config/rate_card.yaml` — 노드 월 환산액,
   TB·월 저장 단가)를 테이블 바이트·쿼리 CPU 시간 비율로 배분. 단가표는 고객이
   입력하며 비어 있으면 금액 대신 자원량만 표시.
 - 호출자 귀속: Sumun 감사 행의 `bytes_scanned`, `model_tokens`,

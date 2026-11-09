@@ -1,4 +1,4 @@
-# Mulgil single-laptop fixture — a shrunken `sovereign` profile.
+# Mulgil single-laptop fixture — a shrunken `trino-k8s` profile.
 # SeaweedFS (S3 + Iceberg REST catalog), Trino, Postgres (Airflow/Sumun metadata).
 # First bring-up is pending; treat as a scaffold until scripts/up.sh passes.
 services:

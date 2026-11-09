@@ -3,7 +3,7 @@
 | Path | What | Language |
 |---|---|---|
 | `adr/` | decisions — index in `adr/README.md` (0004 package + console, 0005 connect-first + hedges) | EN |
-| `guide/` | build guides: architecture, sizing, sovereign cluster (SeaweedFS) — index in `guide/README.md` | KO |
+| `guide/` | build guides: architecture, sizing, storage option A (SeaweedFS) under storage/ — index in `guide/README.md` | KO |
 | `license-review.md` | every OSS component, how we use it, obligations, verdict; feeds the security-review package ⑪ | KO |
 | `process/METHOD.md` | pointer to the method in lukesgood/sumun | KO |
 

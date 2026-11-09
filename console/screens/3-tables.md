@@ -1,6 +1,6 @@
-# 2. 테이블 (Tables)
+# 3. 테이블 — 랜딩존 (Tables)
 
-> Phase 2 — 첫 번째로 구현.
+> Phase 2b. 랜딩존 미설치면 메뉴에서 숨김.
 
 ## 목적
 플랫폼이 가진 데이터 자산의 단일 목록. 소유자·PII·계약·건강을 한 줄에 보여주고,
@@ -36,7 +36,7 @@ Iceberg 유지보수를 여기서 실행·예약한다. 콘솔에서 가장 많�
 ## 빈 상태·오류
 - 테이블 0개: "dbt 모델이 아직 실행되지 않았습니다" + seed 명령.
 - Iceberg 메타 조회 실패(엔진 다운): 목록은 manifest 기반으로 표시, 크기·건강 열은 "—"와 배너.
-- aws-serverless에서 remove_orphan_files: `profile_unsupported` → 버튼 숨기고 "S3 Tables가 자동 처리" 안내.
+- athena에서 remove_orphan_files: `profile_unsupported` → 버튼 숨기고 "S3 Tables가 자동 처리" 안내.
 
 ## 인수 기준
 - [ ] 시드 데이터 기준 7개 모델이 레이어·소유자·PII와 함께 목록에 뜬다.

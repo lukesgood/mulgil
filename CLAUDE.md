@@ -1,44 +1,37 @@
 # Mulgil — working notes for Claude
 
-Mulgil (물길) is a medallion lakehouse **package** sold with build
-engagements and bundled with Sumun (lukesgood/sumun): a versioned
-distribution (BOM, Helm umbrella, Terraform, compose), a dbt template,
-build guides, and an integrated management console over SeaweedFS,
-Trino/Athena, Polaris, dbt and Airflow. ADR 0004 replaced the earlier
-"reference platform, not a product" stance (ADR 0001); ADR 0005 added the
-"connect first, land progressively" entry model and the hedges.
+Mulgil (물길) is **Sumun's execution and operations layer** (lukesgood/sumun
+is the product): a distributed query engine deployment (Trino), source-catalog
+templates, an optional Iceberg landing zone on any S3-compatible store, the
+`mulgil-ops` API, and the console *specifications*. Mulgil is not marketed as
+a product and has no tagline (ADR 0006). History: 0001 reference platform →
+0004 package + console → 0005 connect-first → 0006 engine-centric.
 
 ## Non-negotiables
-- One console (`console/`), one ops API (`ops/`). The console manages data
-  assets — tables, pipelines, cost, storage, alerts — never pods, logs, SQL
-  editing, DAG authoring or users (ADR 0004). Link to k9s/Airflow/IdP instead.
-- All writes go through `mulgil-ops`, are maintenance-only, idempotent,
-  reversible, dry-run first, and recorded append-only in `ops_actions`.
-  No Mulgil scheduler for business work: maintenance and dbt run via Airflow
-  or Step Functions. The ops poller only collects; it changes nothing outside.
-- `mulgil-ops` reaches Sumun through `GET /usage/export` only — never Sumun's DB.
-- One console = one profile (v0). Table id = catalog FQN.
-- Time series live in Prometheus, alerts in Alertmanager. Grafana is optional
-  and never modified (AGPL) — dashboards as JSON only.
-- One dbt project for all profiles. A **Gold** model that only works on one
-  target is a bug; Bronze ELT models over federated sources declare
-  `meta.profiles` (ADR 0005).
-- Connect first, land progressively (ADR 0005): federation mode is a
-  supported entry; RDB ingestion default is Trino ELT via dbt; tier-B queries
-  run in the `federated` resource group with read-only source accounts.
-- SeaweedFS-specific features (filer events, mount, EC, remote.sync) are
-  optional. The product must run on any S3 store; Polaris is the default
-  catalog. Storage exit test twice a year.
-- Trino is "the engine" in product text, never a product name.
-- Every profile matches `distro/BOM.yaml`. Version drift is a bug.
-- PII is tagged in dbt `meta.pii`, never masked in Silver/Gold — masking is Sumun's per-caller job.
+- Engine at the centre, storage neutral. Nothing here requires a specific
+  object store; SeaweedFS is storage option A with its own guide, nothing more.
+  No filer events, mounts or vendor features outside option A docs.
+- Two engine profiles only: `trino-k8s` (default) and `athena`. A third needs an ADR.
+- Policy is written by Sumun; Mulgil provides the place it runs and its
+  operation. Mulgil code never creates policy; it renders what Sumun gives
+  (OPA bundle, rules.json, resource groups) and reaches Sumun only via
+  `GET /usage/export`.
+- Tier-B queries run in the `federated` resource group with read-only source
+  accounts; templates ship conservative pushdown/concurrency defaults.
+- Console code lives in sumun `ee/console`; here only `console/screens/`
+  specs and `ops/`. The console never executes SQL. `mulgil-ops` writes are
+  maintenance-only, dry-run first, append-only logged; no scheduler (Airflow /
+  Step Functions); the poller only collects.
+- Landing zone is optional. One dbt project; a Gold model that only works on one
+  target is a bug; Bronze ELT over federated sources declares `meta.profiles`.
+- PII is tagged in dbt `meta.pii`, never masked in Silver/Gold — masking is Sumun's job.
 - Gold tables carry a data contract (owner, sla_hours, contract) in schema.yml meta.
-- Seeds are synthetic. No customer schemas or records, ever.
-- No credentials in compose, Helm values or Terraform — `.env.example` only.
-- No Spark without an ADR (ADR 0003). Three profiles only (ADR 0002).
-- Everything here is public, Apache-2.0. Commercial value is the engagement and Sumun `ee/`.
+- Seeds are synthetic. No credentials in compose/Helm/Terraform — `.env.example` only.
+- No Spark without an ADR (ADR 0003). Every profile matches `distro/BOM.yaml`.
+- Trino is "the engine" in product text, never a product name. Everything here is Apache-2.0.
 
 ## Layout
-distro/ (BOM, profiles) · dbt/ (shared) · ops/ (mulgil-ops API) · console/ (UI) ·
-compose/ (laptop) · helm/mulgil/ (sovereign) · terraform/aws-serverless/ ·
-terraform/aws-trino/ · observability/ · docs/adr/ · docs/guide/ · scripts/
+distro/ (BOM, profiles) · engine/ (Trino config: resource groups, catalogs, OPA hook) ·
+dbt/ (landing-zone template) · ops/ (mulgil-ops API) · console/screens/ (specs only) ·
+compose/ (laptop) · helm/mulgil/ (trino-k8s) · terraform/athena/ · storage/seaweedfs/ (option A) ·
+observability/ · docs/adr/ · docs/guide/ · scripts/

@@ -1,0 +1,3 @@
+# Profile overlay: trino-k8s — references distro/BOM.yaml (ADR 0006)
+profile: trino-k8s
+bom: ../BOM.yaml

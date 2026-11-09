@@ -1,148 +1,100 @@
 # Mulgil (물길)
 
-**A governed medallion lakehouse package on open components — with
-[Sumun (수문)](https://github.com/lukesgood/sumun) built in.**
+**The execution layer of [Sumun (수문)](https://github.com/lukesgood/sumun).**
+Not a product of its own (ADR 0006).
 
-Mulgil is the waterway: it carries data from sources through Bronze, Silver
-and Gold on Apache Iceberg, using SeaweedFS, Trino or Athena, Apache
-Polaris, dbt and Airflow. Sumun is the gate at the end of it — the governed
-tool server that decides which agents and applications may drink from Gold.
+Sumun is an agent data-access control layer: it decides, in front of the
+data, what an AI agent may see on whose behalf and within what budget, and
+enforces that in the data layer — row-level security, catalog permissions,
+engine access control — with the same policy for documents and tables, all
+Apache-licensed, inside air-gapped networks. Mulgil is the place that policy
+runs when a customer has no engine of their own:
 
-> Mulgil carries the data. Sumun decides who drinks.
+- a **distributed query engine deployment** (Trino on Kubernetes, or Athena)
+  with resource groups, an OPA access-control hook and an event listener,
+- **source-catalog templates** for the systems customers already have —
+  PostgreSQL, MySQL, Oracle, SQL Server, Kafka, Elasticsearch, Hive — with
+  read-only, conservative defaults,
+- an **optional landing zone** (Iceberg + Polaris + a dbt medallion template)
+  on **any S3-compatible store the customer provides**,
+- the **`mulgil-ops` API** behind Sumun's operations console, and the
+  console's public specifications,
+- **storage option A**: a SeaweedFS reference configuration and infrastructure
+  guide for sovereign customers who have no object store at all.
 
-Mulgil is delivered as a **package** (ADR 0004): one bill of materials, three
-deployment profiles, a dbt template, build guides, and an integrated
-management console that manages the data assets — tables, pipelines, cost,
-storage, alerts — in one place.
+> Agents see only Sumun. Sumun decides tier A (landing zone, documents) or
+> tier B (your existing sources). The engine enforces it.
 
-**You can start without a migration** (ADR 0005). In federation mode Trino
-connects your existing PostgreSQL, Oracle, SQL Server, MySQL, Kafka,
-Elasticsearch or Hive sources behind one endpoint, and Sumun governs agent
-access to them from day one (governance tier B: read-only, aggregate-first,
-PII columns blocked). Tables that need full governance — row-level security,
-PII masking, data contracts — are landed into Iceberg Gold with Trino ELT
-through dbt (tier A). Connect, govern, then land what matters.
+## Governance tiers
 
-What Mulgil is not: a pod viewer, a SQL editor, a DAG editor or a user
-directory. Those stay with k9s, your MCP client, Airflow and your IdP, and
-the console links to them.
+| | Tier A — governed | Tier B — federated |
+|---|---|---|
+| Data | Iceberg landing zone, document collections | any table in a connected source catalog |
+| Enforcement | Postgres RLS, catalog permissions, engine access control | engine access control (OPA bundle rendered by Sumun) |
+| PII | dbt `meta.pii` tags → per-caller masking | scanned at registration; pattern columns **blocked** |
+| Default | in the agent's scope | read-only, aggregate-first, ≤100 rows, out of scope until listed per key |
+| Nature | operational access | discovery access — weaker by design, and the security-review package says so |
 
-Everything in this repository is public and Apache-2.0. Revenue comes from
-build engagements, support and Sumun's commercial extensions.
+Moving a table from B to A is one Trino ELT statement into the landing zone.
 
-## Stack
+## Profiles
 
-One dbt project, three deployment profiles. The models, tests, PII tags and
-metric definitions are identical; only the target changes.
-
-| Layer | `sovereign` (on-prem, air-gapped) | `aws-serverless` (AWS default) | `aws-trino` (AWS, large or low-latency) |
+| Profile | Engine | Landing-zone storage | Tier B |
 |---|---|---|---|
-| Object store | SeaweedFS | S3 | S3 |
-| Iceberg catalog | Polaris (default); SeaweedFS built-in REST for small installs | S3 Tables (built-in REST) | Polaris |
-| Query + transform engine | Trino on Kubernetes | Athena (Trino-based engine) | Trino on EKS |
-| dbt adapter | dbt-trino | dbt-athena | dbt-trino |
-| Orchestration | Airflow on Kubernetes | Step Functions or scheduled CI; MWAA optional | Airflow on EKS |
-| Iceberg maintenance | Trino `optimize` / `expire_snapshots` via Airflow | S3 Tables automatic compaction; Athena `OPTIMIZE`/`VACUUM` | Trino via Airflow |
-| Second-layer governance (engineers via SQL) | Trino `rules.json` generated from Sumun policies | Lake Formation permissions generated from Sumun policies | Trino `rules.json` |
-| Federated sources (tier B) | Trino connectors, `federated` resource group | Athena Federated Query — Bronze landing only, no tier-B agent access | Trino connectors |
-| Ingestion defaults | RDB: Trino ELT via dbt · NAS paths: `weed mount` · documents: filer events · SaaS: Airbyte · streams: Kafka Connect Iceberg Sink | Athena Federated Query, DMS, Glue, Kinesis | Trino ELT via dbt, Kafka Connect |
-| Cold tier (optional) | SeaweedFS erasure coding; `filer.remote.sync` to S3/Glacier (hybrid) | S3 storage classes | S3 storage classes |
-
-Spark is deliberately absent. Trino and Athena cover writes, `MERGE` and
-table maintenance; add Spark only when a workload proves it needs it.
-
-**Profiles.** `sovereign` and `aws-trino` carry the full feature set.
-`aws-serverless` is the lightweight profile for AWS-only customers under
-roughly 100 TB with low agent concurrency; promotion to `aws-trino` changes
-the dbt profile only and moves no data. Regulated customers usually consume
-AWS through the `sovereign` hybrid cold tier instead.
-
-**Why serverless is the AWS default for cloud-only customers.** Trino on EKS costs roughly $650–750
-a month before the first query (three m6i.xlarge nodes, EKS control plane,
-NAT); Athena costs $5 per TB scanned and nothing idle. Break-even is around
-130 TB scanned a month, which mid-size Gold-layer workloads rarely reach.
-Per-query scan bytes also give Sumun exact per-caller cost attribution.
-Choose `aws-trino` for high agent concurrency or sub-second latency.
+| `trino-k8s` (default) | Trino on Kubernetes — on-prem, air-gapped, or EKS (`helm/mulgil`) | any S3-compatible (S3, MinIO under your licence, Ceph RGW, SeaweedFS option A) | full |
+| `athena` | Athena — AWS-only, small, low concurrency (`terraform/athena`) | S3 Tables | Bronze landing only; no agent tier-B access |
+| none | your Starburst · Snowflake · Databricks | yours | through Sumun's engine adapter |
 
 ## Layout
 
 ```
-distro/                 the package: BOM.yaml (pinned versions = product version), profile overlays
-dbt/                    shared — Bronze, Silver, Gold models; seeds; metric definitions
-ops/                    mulgil-ops — the console's only API; table maintenance, cost, pipeline state
-console/                integrated management UI (seven screens; see console/README.md)
-compose/                single-laptop fixture (a shrunken `sovereign`)
-helm/mulgil/            `sovereign` on Kubernetes (values-sovereign.yaml)
-terraform/aws-serverless/  S3 Tables, Athena, Lake Formation, Step Functions
-terraform/aws-trino/       S3, Polaris, Trino on EKS, Airflow
-observability/          exporter config, alert rules, event payload specs, cost extracts
-docs/adr/               decisions
-docs/guide/             build guides (Korean): architecture, sizing, sovereign cluster
-scripts/                bring-up, seed, teardown
+distro/           BOM.yaml (pinned versions), profile overlays
+engine/           Trino config Mulgil ships: resource groups, source-catalog templates, OPA hook, event listener
+dbt/              landing-zone template — Bronze/Silver/Gold, meta.pii, contracts, metrics
+ops/              mulgil-ops — the console's only API (spec + implementation)
+console/screens/  console specifications (code lives in sumun ee/console)
+compose/          single-laptop fixture
+helm/mulgil/      trino-k8s chart (+ EKS.md)
+terraform/athena/ athena profile
+storage/seaweedfs/ storage option A — reference config + infrastructure guide (Korean)
+observability/    exporters, alert rule bundle, event schema, optional Grafana JSON
+docs/adr/         decisions · docs/guide/ build guides (Korean) · docs/license-review.md
 ```
-
-## Integrated management console
-
-| Screen | Shows | Can do |
-|---|---|---|
-| Overview | status, capacity, month-to-date cost, contract violations, open alerts | — |
-| Tables | layer, owner, PII tags, contract, freshness, health (small files, snapshots) | run or schedule `optimize`, `expire_snapshots`, orphan cleanup |
-| Pipelines | dbt run history, failed models, SLA breaches | re-run |
-| Cost (Chisu, 치수) | per profile, per table, per caller | — |
-| Storage | buckets, nodes, volumes, replication, disk trend | — |
-| Alerts | rules, channels, history | edit rules |
-| Governance | Sumun callers, budgets, masking status | — (read-only) |
-
-Time series live in Prometheus and alerts in Alertmanager; the console draws
-its own charts from PromQL. Grafana is an optional add-on for operators.
-
-## What crosses the boundary into Sumun
-
-Mulgil produces four things Sumun reads and never writes:
-
-| Mulgil produces | Sumun uses it for |
-|---|---|
-| PII column tags on Silver and Gold (Iceberg column properties `pii=rrn`, `pii=phone`, …) | Tag-driven masking policies instead of per-table hand-written rules |
-| Data contracts on Gold (schema, owner, SLA) and dbt metric definitions | `query_metric` — one definition shared by BI and agents |
-| Lineage (dbt manifest, optionally OpenMetadata) | Provenance in the audit log, down to source |
-| Freshness (Iceberg snapshot timestamps, dbt run state) | `as_of` on every answer; stale data labelled or refused |
-
-Agents see Gold only. Bronze and Silver are reachable by engineers through
-Trino under the same policy tables Sumun enforces.
 
 ## Documentation map
 
 | Want to… | Read |
 |---|---|
 | understand what is where and why | `docs/guide/00-architecture.md` |
-| size a cluster or price a profile | `docs/guide/01-sizing.md` |
-| build the on-prem SeaweedFS cluster | `docs/guide/02-sovereign.md` (+ infra team guide, published separately) |
-| see the console and its API | `console/README.md`, `console/screens/`, `ops/API.md` |
-| check versions shipped | `distro/BOM.yaml` |
-| check licenses | `docs/license-review.md`, `THIRD_PARTY_NOTICES.md` |
+| size the engine or price a profile | `docs/guide/01-sizing.md` |
+| build an object store because you have none | `storage/seaweedfs/GUIDE.md` |
+| see the console contract | `console/README.md`, `console/screens/`, `ops/API.md` |
+| check versions and licenses | `distro/BOM.yaml`, `docs/license-review.md`, `THIRD_PARTY_NOTICES.md` |
 | see why a decision was made | `docs/adr/README.md` |
-| work on the repo | `CLAUDE.md`, `docs/process/METHOD.md` |
+| work on the repo | `CLAUDE.md`, `docs/process/METHOD.md` (in sumun) |
 
 ## Quick start
 
 ```
 cp compose/.env.example compose/.env
-scripts/up.sh          # SeaweedFS, Trino, Airflow, Postgres
-scripts/seed.sh        # dbt seed + run: Bronze → Silver → Gold on sample data
+scripts/up.sh          # Trino, Postgres, (optional) SeaweedFS for the landing zone
+scripts/seed.sh        # dbt seed + run on the fixture
 ```
 
-Then point Sumun's `dev` profile at `http://localhost:8080` (Trino) and
-`http://localhost:8181` (Iceberg REST).
+Point Sumun's `dev` profile at `http://localhost:8080` (Trino).
+
+## What crosses into Sumun
+
+Mulgil produces four things Sumun reads and never writes: PII column tags
+(`meta.pii`), data contracts and metric definitions on Gold, lineage (dbt
+manifest), freshness (snapshot timestamps). Sumun reaches Mulgil's console
+data only through `GET /usage/export`, never the other way into Sumun's DB.
 
 ## Sample data
-
-Fictional orders, customers and products only. No customer schemas, no
-real records. Korean-format PII (주민등록번호, 휴대전화) in the seed is
-synthetic and checksum-valid so Sumun's masking tests have something to
-catch.
+Fictional only; Korean-format PII in seeds is synthetic and checksum-valid so
+Sumun's masking tests have something to catch.
 
 ## License
-
-Apache-2.0. Upstream components keep their own licenses; MinIO (AGPL) is
-not included by default — SeaweedFS is. See THIRD_PARTY_NOTICES.md once
-the first compose file lands.
+Apache-2.0. Upstream components keep their own licenses — see
+`THIRD_PARTY_NOTICES.md` and `docs/license-review.md`. The operations console
+source is commercial and lives in sumun `ee/`.

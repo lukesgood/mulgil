@@ -1,13 +1,13 @@
-# 3. 파이프라인 (Pipelines)
+# 4. 파이프라인 (Pipelines)
 
-> Phase 2.
+> Phase 2b. 랜딩존 미설치면 숨김.
 
 ## 목적
 dbt 실행이 성공했는지, 어느 모델이 왜 실패했는지, 데이터 계약 SLA가 지켜지는지
 보고 실패분을 재실행한다. DAG 작성·편집은 하지 않는다 — Airflow 링크.
 
 ## 데이터
-- `GET /pipelines/runs` — 실행 목록: run_id, 트리거(schedule/manual/rerun), 시작·종료, 상태, 모델 수(성공/실패/스킵), 소요 시간. 출처는 Airflow REST(sovereign·aws-trino) 또는 Step Functions(aws-serverless) + dbt `run_results.json`.
+- `GET /pipelines/runs` — 실행 목록: run_id, 트리거(schedule/manual/rerun), 시작·종료, 상태, 모델 수(성공/실패/스킵), 소요 시간. 출처는 Airflow REST(trino-k8s) 또는 Step Functions(athena) + dbt `run_results.json`.
 - `GET /pipelines/runs/{run_id}` — 모델별 결과: 이름, 레이어, 상태, 실행 시간, 행 수, 실패 메시지 첫 줄, 로그 링크(Airflow 태스크 로그 URL).
 - `GET /contracts/violations` — 종류 `sla_breach | schema_drift | missing_owner | missing_contract`, 테이블, 발생 시각, 현재 지속 여부.
 
@@ -25,7 +25,7 @@ dbt 실행이 성공했는지, 어느 모델이 왜 실패했는지, 데이터 �
 ## 빈 상태·오류
 - 실행 0회: "첫 실행 대기 — Airflow DAG `mulgil_dbt` 활성화 여부 확인" + Airflow 링크.
 - 오케스트레이터 API 불가: run_results.json 기반으로 마지막 실행만 표시, 배너.
-- aws-serverless에서 모델별 로그 링크 없음(Step Functions): CloudWatch 로그 그룹 링크로 대체.
+- athena에서 모델별 로그 링크 없음(Step Functions): CloudWatch 로그 그룹 링크로 대체.
 
 ## 인수 기준
 - [ ] 의도적으로 실패시킨 모델이 상세에서 상단에 메시지와 함께 보인다.

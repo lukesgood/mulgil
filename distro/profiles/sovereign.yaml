@@ -1,4 +1,0 @@
-# Profile overlay: sovereign — references distro/BOM.yaml. Placeholder until the
-# BOM check script lands; see helm/ or terraform/ for the deployable artifacts.
-profile: sovereign
-bom: ../BOM.yaml

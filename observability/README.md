@@ -1,7 +1,7 @@
 # observability
 
-Signals Mulgil emits and the engines that hold them. The screen is the Mulgil
-console (`console/`), fed by `mulgil-ops` (`ops/`); Grafana is an optional,
+Signals Mulgil emits and the engines that hold them. The screen is Sumun's operations
+console (code in sumun `ee/console`, specs in `console/`), fed by `mulgil-ops` (`ops/`); Grafana is an optional,
 unmodified add-on for operators (ADR 0004).
 
 - `prometheus/` — scrape config for SeaweedFS, Trino, Airflow, PostgreSQL, node exporters; retention 90d
